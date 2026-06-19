@@ -4,9 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import re
+import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.pipeline_contracts import EventWriter
 
 PAGE_MARKER_RE = re.compile(r"^<!-- Page (\d+) -->\s*$")
 HEADING_RE = re.compile(r"^##\s+(.+?)\s*$")
@@ -1356,7 +1367,7 @@ def build_segmentation_preview(
             "- `درشت‌تر` / `coarse` → پارت‌های بزرگ‌تر و کمتر",
             "- `ریزتر` / `fine` → پارت‌های کوچک‌تر و بیشتر",
             "",
-            f"ایندکس کامل: `STUDY_INDEX.md` و `STUDY_INDEX.pdf`",
+            "ایندکس کامل: `STUDY_INDEX.md` و `STUDY_INDEX.pdf`",
         ]
     )
     return "\n".join(lines)
@@ -1379,6 +1390,73 @@ def export_index_pdf(index_md: Path, output_pdf: Path) -> None:
     )
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_json_atomic(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def write_parts_manifest(
+    *,
+    source_md: Path,
+    source_pdf: Path | None,
+    output_dir: Path,
+    granularity: str,
+    language: str,
+    parts: list[StudyPart],
+) -> Path:
+    part_entries = []
+    for index, part in enumerate(parts, start=1):
+        part_path = output_dir / "parts" / part.filename
+        part_entries.append(
+            {
+                "id": f"part-{index:03d}",
+                "index": index,
+                "title": part.title,
+                "filename": part.filename,
+                "sha256": sha256_file(part_path),
+                "start_page": part.start_page,
+                "end_page": part.end_page,
+            }
+        )
+    payload: dict[str, object] = {
+        "schema": "final-study.parts",
+        "version": 1,
+        "source": {
+            "markdown_path": str(source_md),
+            "markdown_sha256": sha256_file(source_md),
+            "pdf_path": str(source_pdf) if source_pdf else None,
+        },
+        "granularity": granularity,
+        "index_language": language,
+        "parts": part_entries,
+    }
+    manifest_path = output_dir / "parts-manifest.json"
+    write_json_atomic(manifest_path, payload)
+    return manifest_path
+
+
 def segment_markdown(
     source_md: Path,
     output_dir: Path,
@@ -1387,6 +1465,7 @@ def segment_markdown(
     *,
     granularity: str = "normal",
     export_pdf: bool = True,
+    events: EventWriter | None = None,
 ) -> list[StudyPart]:
     cfg = apply_granularity(granularity)
     text = source_md.read_text(encoding="utf-8")
@@ -1417,11 +1496,28 @@ def segment_markdown(
             old_file.unlink()
     parts_dir.mkdir(parents=True, exist_ok=True)
 
-    for part in parts:
+    for index, part in enumerate(parts, start=1):
         body = rewrite_image_paths(part.text, source_md, parts_dir)
         if not body.lstrip().startswith("#"):
             body = f"# {part.title}\n\n{body}"
-        (parts_dir / part.filename).write_text(body, encoding="utf-8")
+        part_path = parts_dir / part.filename
+        part_path.write_text(body, encoding="utf-8")
+        if events is not None:
+            events.emit(
+                "item.completed",
+                "segmentation",
+                item={
+                    "id": f"part-{index:03d}",
+                    "index": index,
+                    "total": len(parts),
+                    "label": part.title,
+                },
+                artifact={
+                    "kind": "markdown_part",
+                    "path": str(part_path),
+                    "sha256": sha256_file(part_path),
+                },
+            )
 
     index_text = build_index(parts, source_md, source_pdf, output_dir, language)
     index_md = output_dir / "STUDY_INDEX.md"
@@ -1441,6 +1537,25 @@ def segment_markdown(
         except Exception as exc:
             print(f"WARNING: Could not export STUDY_INDEX.pdf: {exc}", flush=True)
 
+    manifest_path = write_parts_manifest(
+        source_md=source_md,
+        source_pdf=source_pdf,
+        output_dir=output_dir,
+        granularity=cfg.label,
+        language=language,
+        parts=parts,
+    )
+    if events is not None:
+        events.emit(
+            "artifact.validated",
+            "segmentation",
+            artifact={
+                "kind": "parts_manifest",
+                "path": str(manifest_path),
+                "sha256": sha256_file(manifest_path),
+            },
+        )
+
     return parts
 
 
@@ -1451,6 +1566,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", type=Path, required=True, help="Source markdown file")
     parser.add_argument("--output-dir", type=Path, required=True, help="Output directory")
     parser.add_argument("--source-pdf", type=Path, help="Original PDF path for index links")
+    parser.add_argument("--event-file", type=Path)
+    parser.add_argument("--run-id")
     parser.add_argument("--language", default="Persian", help="Language note for index descriptions")
     parser.add_argument(
         "--granularity",
@@ -1471,6 +1588,10 @@ def main() -> int:
     if not args.input.exists():
         raise SystemExit(f"Input not found: {args.input}")
 
+    events = EventWriter(
+        args.event_file.resolve() if args.event_file else None,
+        args.run_id or "standalone-segmentation",
+    )
     parts = segment_markdown(
         source_md=args.input.resolve(),
         output_dir=args.output_dir.resolve(),
@@ -1478,6 +1599,7 @@ def main() -> int:
         language=args.language,
         granularity=args.granularity,
         export_pdf=not args.no_pdf,
+        events=events,
     )
 
     output_dir = args.output_dir.resolve()
@@ -1485,6 +1607,7 @@ def main() -> int:
     print(f"Index (md) : {output_dir / 'STUDY_INDEX.md'}")
     print(f"Index (pdf): {output_dir / 'STUDY_INDEX.pdf'}")
     print(f"Preview    : {output_dir / 'SEGMENTATION_PREVIEW.md'}")
+    print(f"Manifest   : {output_dir / 'parts-manifest.json'}")
     print(f"Granularity: {args.granularity}")
     return 0
 

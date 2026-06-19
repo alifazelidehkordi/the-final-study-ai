@@ -2,6 +2,7 @@
 name = "the-final-study-ai"
 version = "0.2.0.dev0"
 requires-python = ">=3.10"
+dependencies = ["defusedxml>=0.7,<1"]
 
 [project.optional-dependencies]
 dev = [
@@ -9,7 +10,8 @@ dev = [
   "jsonschema>=4.23,<5",
   "mypy>=1.15,<3",
   "pytest>=8,<10",
-  "ruff>=0.11,<1"
+  "ruff>=0.11,<1",
+  "types-defusedxml>=0.7"
 ]
 
 [tool.pytest.ini_options]
@@ -19,7 +21,12 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-include = ["scripts/pipeline_contracts.py", "scripts/run_pipeline.py", "tests/*.py"]
+include = [
+  "scripts/artifact_validators.py",
+  "scripts/pipeline_contracts.py",
+  "scripts/run_pipeline.py",
+  "tests/*.py"
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "S"]
@@ -30,7 +37,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "S"]
 [tool.mypy]
 python_version = "3.10"
 strict = true
-files = ["scripts/pipeline_contracts.py", "scripts/run_pipeline.py"]
+files = [
+  "scripts/artifact_validators.py",
+  "scripts/pipeline_contracts.py",
+  "scripts/run_pipeline.py"
+]
 
 [tool.bandit]
 exclude_dirs = ["tests"]

@@ -168,6 +168,7 @@ For `book.pdf` in `/data/books/`:
 ├── STUDY_INDEX.md           # bilingual index (FA + EN)
 ├── STUDY_INDEX.pdf          # printable index
 ├── SEGMENTATION_PREVIEW.md  # review summary
+├── parts-manifest.json      # ordered hashes for safe resume
 ├── parts/                   # one file = one topic
 │   ├── 01_Topic_A.md
 │   └── ...

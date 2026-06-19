@@ -57,6 +57,17 @@ def test_event_writer_orders_events_and_reader_ignores_truncated_tail(
     assert second["seq"] == 2
 
 
+def test_multiple_event_writers_share_monotonic_sequence(tmp_path: Path) -> None:
+    path = tmp_path / "events.jsonl"
+    EventWriter(path, "run-1").emit("run.started", "preflight")
+    EventWriter(path, "run-1").emit("item.completed", "segmentation")
+
+    events, truncated = read_events(path)
+
+    assert truncated is False
+    assert [event["seq"] for event in events] == [1, 2]
+
+
 def test_manifest_round_trip_and_status_update_are_atomic(tmp_path: Path) -> None:
     path = tmp_path / "runs" / "run.json"
     manifest = example_manifest()

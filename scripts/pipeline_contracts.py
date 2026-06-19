@@ -87,17 +87,6 @@ class EventWriter:
 
     def emit(self, event_type: str, stage: str, **data: object) -> dict[str, Any]:
         with self._thread_lock:
-            self.sequence += 1
-            payload: dict[str, Any] = {
-                "schema": EVENT_SCHEMA,
-                "version": EVENT_VERSION,
-                "run_id": self.run_id,
-                "seq": self.sequence,
-                "time": utc_now(),
-                "type": event_type,
-                "stage": stage,
-                "data": data,
-            }
             if self.path is not None:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 lock_path = self.path.with_suffix(self.path.suffix + ".lock")
@@ -105,10 +94,53 @@ class EventWriter:
                     exclusive_file_lock(lock_path),
                     self.path.open("a", encoding="utf-8") as stream,
                 ):
+                    self.sequence = max(self.sequence, _last_event_sequence(self.path)) + 1
+                    payload = self._payload(event_type, stage, data)
                     stream.write(json.dumps(payload, ensure_ascii=False) + "\n")
                     stream.flush()
                     os.fsync(stream.fileno())
-            return payload
+                    return payload
+            self.sequence += 1
+            return self._payload(event_type, stage, data)
+
+    def _payload(
+        self,
+        event_type: str,
+        stage: str,
+        fields: dict[str, object],
+    ) -> dict[str, Any]:
+        details = dict(fields)
+        payload: dict[str, Any] = {
+            "schema": EVENT_SCHEMA,
+            "version": EVENT_VERSION,
+            "run_id": self.run_id,
+            "seq": self.sequence,
+            "time": utc_now(),
+            "type": event_type,
+            "stage": stage,
+            "data": {},
+        }
+        for key in ("item", "artifact", "error"):
+            if key in details:
+                payload[key] = details.pop(key)
+        payload["data"] = details
+        return payload
+
+
+def _last_event_sequence(path: Path) -> int:
+    if not path.exists():
+        return 0
+    with path.open("rb") as stream:
+        lines = stream.read().splitlines()
+    for line in reversed(lines):
+        try:
+            event = json.loads(line.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError):
+            continue
+        sequence = event.get("seq")
+        if isinstance(sequence, int):
+            return sequence
+    return 0
 
 
 def read_events(path: Path) -> tuple[list[dict[str, Any]], bool]:

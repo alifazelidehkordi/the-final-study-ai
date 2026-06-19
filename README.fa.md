@@ -123,6 +123,7 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
 ├── STUDY_INDEX.md           # ایندکس دوزبانه FA + EN
 ├── STUDY_INDEX.pdf          # نسخهٔ چاپی ایندکس
 ├── SEGMENTATION_PREVIEW.md  # خلاصه برای تأیید
+├── parts-manifest.json      # ترتیب و hash پارت‌ها برای resume امن
 ├── parts/                   # یک فایل = یک موضوع
 │   ├── 01_Topic_A.md
 │   └── ...

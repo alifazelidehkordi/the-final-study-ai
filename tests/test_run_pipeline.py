@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import stat
@@ -24,6 +25,7 @@ def parse(*arguments: str):
 
 
 def executable_script(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("#!/usr/bin/env python3\n" + body, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
@@ -71,6 +73,7 @@ def test_mindmap_command_uses_python_entry_point_and_native_paths(
         start_at="mindmap",
         stop_after=None,
         skip_segmentation=False,
+        require_valid_parts=False,
         approve_segmentation=True,
         overwrite=True,
         granularity="normal",
@@ -203,6 +206,57 @@ def test_complete_pipeline_returns_review_exit_and_event(
         range(1, len(payloads) + 1)
     )
     assert json.loads(manifest.read_text())["status"] == "awaiting_review"
+
+
+def test_mindmaps_only_requires_and_accepts_valid_parts_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    work = tmp_path / "work"
+    parts = work / "parts"
+    parts.mkdir(parents=True)
+    part = parts / "01_Topic.md"
+    part.write_text("# Topic\nBody\n", encoding="utf-8")
+    (work / "parts-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "final-study.parts",
+                "version": 1,
+                "parts": [
+                    {
+                        "id": "part-001",
+                        "filename": part.name,
+                        "sha256": hashlib.sha256(part.read_bytes()).hexdigest(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    project = tmp_path / "mindmap"
+    python_path = project / ".venv/bin/python"
+    python_path.parent.mkdir(parents=True)
+    python_path.symlink_to(sys.executable)
+    pipeline_script = executable_script(
+        project / "scripts/pipeline.py",
+        "raise SystemExit(0)\n",
+    )
+    prompt = project / "prompts/prompt-mind-map.md"
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("prompt", encoding="utf-8")
+    monkeypatch.setenv("MINDMAP_PROJECT", str(project))
+
+    code = pipeline.main(
+        (
+            "--work-dir",
+            str(work),
+            "--mindmap-only",
+            "--require-valid-parts",
+        )
+    )
+
+    assert pipeline_script.is_file()
+    assert code == pipeline.EXIT_SUCCESS
 
 
 def test_wrapper_help_delegates_to_python() -> None:

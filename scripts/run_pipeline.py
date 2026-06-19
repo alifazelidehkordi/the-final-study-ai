@@ -64,6 +64,7 @@ class PipelineOptions:
     start_at: str
     stop_after: str | None
     skip_segmentation: bool
+    require_valid_parts: bool
     approve_segmentation: bool
     overwrite: bool
     granularity: str
@@ -197,6 +198,7 @@ def normalize_options(args: argparse.Namespace) -> PipelineOptions:
         start_at=start_at,
         stop_after=stop_after,
         skip_segmentation=args.skip_segment,
+        require_valid_parts=args.require_valid_parts,
         approve_segmentation=args.approve_segmentation,
         overwrite=args.overwrite,
         granularity=args.granularity,
@@ -300,9 +302,12 @@ def conversion_command(
 def segmentation_command(
     paths: PipelinePaths,
     options: PipelineOptions,
+    *,
+    event_path: Path | None = None,
+    run_id: str | None = None,
 ) -> list[str]:
     pdf, markdown = require_pdf_paths(paths)
-    return [
+    command = [
         sys.executable,
         str(SEGMENT_SCRIPT),
         "--input",
@@ -316,6 +321,11 @@ def segmentation_command(
         "--granularity",
         options.granularity,
     ]
+    if event_path is not None:
+        command.extend(("--event-file", str(event_path)))
+    if run_id is not None:
+        command.extend(("--run-id", run_id))
+    return command
 
 
 def mindmap_command(
@@ -423,7 +433,12 @@ def execute(
         code = run_stage(
             "segmentation",
             "Step 2/3: Markdown -> study parts + index",
-            segmentation_command(paths, options),
+            segmentation_command(
+                paths,
+                options,
+                event_path=events.path,
+                run_id=events.run_id,
+            ),
             log,
             events,
         )
@@ -445,6 +460,16 @@ def execute(
         return EXIT_REVIEW_REQUIRED
 
     require_dir(paths.parts, "Study parts")
+    if options.require_valid_parts:
+        from scripts.artifact_validators import (
+            ArtifactValidationError,
+            validate_parts_manifest,
+        )
+
+        try:
+            validate_parts_manifest(paths.work_dir / "parts-manifest.json")
+        except ArtifactValidationError as exc:
+            raise PipelineError(str(exc)) from exc
     require_dir(tooling.mindmap_project, "Mind-map project")
     require_file(tooling.mindmap_python, "Mind-map Python")
     require_file(tooling.mindmap_pipeline, "Mind-map pipeline")
