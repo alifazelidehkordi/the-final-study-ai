@@ -23,3 +23,6 @@ logs/*.log
 
 # Browser automation (external dependency)
 chrome_profile/
+
+# Local design exploration artifacts
+.superpowers/
