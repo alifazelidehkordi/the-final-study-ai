@@ -66,6 +66,12 @@ class PipelineProcessController(QObject):
             return
         self._process.kill()
 
+    def request_cooperative_stop(self) -> None:
+        if self._state is None:
+            return
+        self._state.stop_file.parent.mkdir(parents=True, exist_ok=True)
+        self._state.stop_file.write_text("requested\n", encoding="utf-8")
+
     def working_directory(self) -> Path:
         return project_root()
 

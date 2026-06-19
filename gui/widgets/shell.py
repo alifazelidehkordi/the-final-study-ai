@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,11 +17,20 @@ from PySide6.QtWidgets import (
 
 from gui.layout import LayoutState, layout_state_for_width, minimum_window_size
 from gui.navigation import NAV_ITEMS, NavDestination, NavigationRail
-from gui.pipeline.process_controller import PipelineProcessController
+from gui.pipeline.exit_codes import (
+    EXIT_PARTIAL,
+    EXIT_REVIEW_REQUIRED,
+    EXIT_STOPPED_COOPERATIVE,
+    EXIT_SUCCESS,
+)
+from gui.pipeline.process_controller import PipelineProcessController, PipelineRunState
+from gui.pipeline.progress_tracker import ProgressSnapshot
 from gui.tokens import SPACING, STATUS_MAX_WIDTH, STATUS_MIN_WIDTH, ColorTokens
+from gui.widgets.history_page import HistoryPage
 from gui.widgets.new_run_page import NewRunPage
-from gui.widgets.path_label import PathLabel
 from gui.widgets.progress_page import ProgressPage
+from gui.widgets.results_page import ResultsPage
+from gui.widgets.review_page import ReviewPage
 from gui.widgets.setup_page import SetupPage
 
 _SCREEN_COPY: dict[NavDestination, tuple[str, str]] = {
@@ -46,50 +57,6 @@ _SCREEN_COPY: dict[NavDestination, tuple[str, str]] = {
 }
 
 
-class _WorkspacePage(QWidget):
-    def __init__(
-        self,
-        destination: NavDestination,
-        colors: ColorTokens,
-        parent: QWidget | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._destination = destination
-        self._colors = colors
-        self.setObjectName(f"workspace-{destination.value}")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
-        layout.setSpacing(SPACING.md)
-        self._title = QLabel(self)
-        self._title.setObjectName("workspaceTitle")
-        self._subtitle = QLabel(self)
-        self._subtitle.setObjectName("workspaceSubtitle")
-        self._subtitle.setWordWrap(True)
-        self._path = PathLabel("/home/student/book_work/STUDY_INDEX.pdf", self)
-        layout.addWidget(self._title)
-        layout.addWidget(self._subtitle)
-        layout.addWidget(self._path)
-        layout.addStretch(1)
-        self.refresh_style()
-        self.retranslate_ui()
-
-    def retranslate_ui(self) -> None:
-        title, subtitle = _SCREEN_COPY[self._destination]
-        self._title.setText(self.tr(title))
-        self._subtitle.setText(self.tr(subtitle))
-
-    def set_colors(self, colors: ColorTokens) -> None:
-        self._colors = colors
-        self.refresh_style()
-
-    def refresh_style(self) -> None:
-        colors = self._colors
-        self._title.setStyleSheet(
-            f"font-size: 20px; font-weight: 600; color: {colors.text};"
-        )
-        self._subtitle.setStyleSheet(f"color: {colors.text_muted};")
-
-
 class _StatusPanel(QFrame):
     def __init__(self, colors: ColorTokens, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -113,9 +80,13 @@ class _StatusPanel(QFrame):
 
     def retranslate_ui(self) -> None:
         self._title.setText(self.tr("Status"))
-        self._body.setText(
-            self.tr("Pipeline activity and readiness information will appear here.")
-        )
+        if self._body.text() == "" or "will appear here" in self._body.text().lower():
+            self._body.setText(
+                self.tr("Pipeline activity and readiness information will appear here.")
+            )
+
+    def set_summary(self, text: str) -> None:
+        self._body.setText(text)
 
     def set_colors(self, colors: ColorTokens) -> None:
         self._colors = colors
@@ -156,6 +127,7 @@ class MainShell(QMainWindow):
         self._content_layout.setSpacing(0)
 
         self._pipeline_controller = PipelineProcessController(self)
+        self._pipeline_controller.run_finished.connect(self._handle_run_finished)
 
         self._navigation = NavigationRail(colors, self._content_row)
         self._navigation.destination_changed.connect(self._show_destination)
@@ -179,11 +151,23 @@ class MainShell(QMainWindow):
                 page.run_started.connect(self._on_run_started)
             elif item.destination == NavDestination.PROGRESS:
                 page = ProgressPage(colors, self._pipeline_controller, self._workspace_host)
+                page.event_watcher().snapshot_updated.connect(self._update_status_from_snapshot)
+            elif item.destination == NavDestination.RESULTS:
+                page = ResultsPage(colors, self._workspace_host)
+            elif item.destination == NavDestination.HISTORY:
+                page = HistoryPage(colors, self._workspace_host)
+                page.open_results_requested.connect(self._open_results_for_manifest)
+                page.resume_requested.connect(self._resume_from_manifest)
             else:
-                page = _WorkspacePage(item.destination, colors, self._workspace_host)
+                raise ValueError(f"Unhandled destination: {item.destination}")
             self._pages[item.destination] = page
             self._workspace_layout.addWidget(page)
             page.setVisible(item.destination == NavDestination.NEW_RUN)
+
+        self._review_page = ReviewPage(colors, self._pipeline_controller, self._workspace_host)
+        self._review_page.review_action_requested.connect(self._on_review_action)
+        self._review_page.hide()
+        self._workspace_layout.addWidget(self._review_page)
 
         self._status = _StatusPanel(colors, self._content_row)
 
@@ -206,6 +190,7 @@ class MainShell(QMainWindow):
         for page in self._pages.values():
             if hasattr(page, "set_colors"):
                 page.set_colors(colors)
+        self._review_page.set_colors(colors)
 
     def layout_state(self) -> LayoutState:
         return layout_state_for_width(self.width())
@@ -217,6 +202,7 @@ class MainShell(QMainWindow):
         for page in self._pages.values():
             if hasattr(page, "retranslate_ui"):
                 page.retranslate_ui()
+        self._review_page.retranslate_ui()
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().resizeEvent(event)
@@ -224,12 +210,69 @@ class MainShell(QMainWindow):
 
     def _show_destination(self, destination_value: str) -> None:
         destination = NavDestination(destination_value)
+        self._review_page.hide()
         for key, page in self._pages.items():
             page.setVisible(key == destination)
+        if destination == NavDestination.HISTORY:
+            history = self._pages[NavDestination.HISTORY]
+            if isinstance(history, HistoryPage):
+                history.refresh_runs()
 
     def _on_run_started(self, _command: object) -> None:
         self._navigation.select(NavDestination.PROGRESS)
         self._show_destination(NavDestination.PROGRESS.value)
+
+    def _handle_run_finished(self, exit_code: int, state: PipelineRunState | None) -> None:
+        history = self._pages.get(NavDestination.HISTORY)
+        if isinstance(history, HistoryPage):
+            history.refresh_runs()
+        if state is None:
+            return
+        if exit_code == EXIT_REVIEW_REQUIRED:
+            self._show_review(state.manifest_file)
+            return
+        if exit_code in (EXIT_SUCCESS, EXIT_PARTIAL):
+            self._open_results_for_manifest(state.manifest_file)
+            return
+        if exit_code == EXIT_STOPPED_COOPERATIVE:
+            self._status.set_summary(self.tr("Run stopped cooperatively at an item boundary."))
+
+    def _show_review(self, manifest_path: Path) -> None:
+        for page in self._pages.values():
+            page.hide()
+        self._review_page.load_manifest(manifest_path)
+
+    def _on_review_action(self, command: object) -> None:
+        self._review_page.hide()
+        if command is None:
+            self._navigation.select(NavDestination.HISTORY)
+            self._show_destination(NavDestination.HISTORY.value)
+            return
+        self._on_run_started(command)
+
+    def _open_results_for_manifest(self, manifest_path: Path) -> None:
+        results = self._pages.get(NavDestination.RESULTS)
+        if isinstance(results, ResultsPage):
+            results.show_run(manifest_path)
+        self._navigation.select(NavDestination.RESULTS)
+        self._show_destination(NavDestination.RESULTS.value)
+
+    def _resume_from_manifest(self, manifest_path: Path) -> None:
+        from gui.pipeline.contracts_bridge import load_run_manifest
+
+        manifest = load_run_manifest(manifest_path)
+        if manifest.get("status") == "awaiting_review":
+            self._show_review(manifest_path)
+
+    def _update_status_from_snapshot(self, snapshot: ProgressSnapshot) -> None:
+        if snapshot.item_total:
+            items = f"{snapshot.completed_items}/{snapshot.item_total}"
+        else:
+            items = str(snapshot.completed_items)
+        self._status.set_summary(
+            f"{snapshot.stage_label}\n{snapshot.current_operation}\n"
+            f"{self.tr('Items')}: {items}\n{snapshot.eta_label}"
+        )
 
     def _apply_layout_state(self, state: LayoutState) -> None:
         self.setProperty("layoutState", state.value)
