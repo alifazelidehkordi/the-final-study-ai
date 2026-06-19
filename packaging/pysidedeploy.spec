@@ -23,7 +23,7 @@ plugins = iconengines,imageformats,platforms,platformthemes,styles
 
 macos.permissions =
 mode = standalone
-extra_args = --quiet --noinclude-qt-translations --include-data-dir=gui/resources=gui/resources --include-data-dir=schemas=schemas
+extra_args = --quiet --assume-yes-for-downloads --noinclude-qt-translations --include-data-dir=gui/resources=gui/resources --include-data-dir=schemas=schemas
 
 [android]
 

@@ -65,6 +65,7 @@ exclude = [
   "scripts/combine_parts_to_sections.py",
   "scripts/chatgpt_login_probe.py",
   "scripts/ci/record_package_sizes.py",
+  "scripts/ci/verify_package_outputs.py",
 ]
 
 [tool.bandit]
