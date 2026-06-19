@@ -5,6 +5,7 @@
 > **Languages:** English (this page) · [فارسی — README.fa.md](README.fa.md)
 
 [![Release](https://img.shields.io/github/v/release/alifazelidehkordi/the-final-study-ai)](https://github.com/alifazelidehkordi/the-final-study-ai/releases/tag/v0.1.0)
+[![GUI beta](https://img.shields.io/badge/GUI-v0.2.0--gui-blue)](docs/RELEASE_NOTES_v0.2.0-gui.md)
 [![Test report](https://img.shields.io/badge/tested-v0.1.0-brightgreen)](docs/TEST_v0.1.0.md)
 
 ```
@@ -15,7 +16,7 @@ PDF
   → OPML → XMind (ChatGPT automation)
 ```
 
-**Version:** v0.1.0 · **Test report:** [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md)
+**Version:** CLI v0.1.0 · GUI beta v0.2.0 · **Test reports:** [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md), [`docs/RELEASE_QUALIFICATION_v0.2.0-gui.md`](docs/RELEASE_QUALIFICATION_v0.2.0-gui.md)
 
 ---
 
@@ -92,16 +93,25 @@ the-final-study-ai/
 
 ## Installation
 
-### Desktop GUI (source)
+### Desktop GUI (beta)
 
-Locked GUI dependencies and launch instructions:
-[`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md)
+Cross-platform PySide6 app with Setup, New Run, Progress, Review, Results, and History.
+
+| Document | Purpose |
+|---|---|
+| [`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md) | Locked install and packaging |
+| [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) | OS / preset support |
+| [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md) | Common GUI issues |
+| [`docs/RELEASE_NOTES_v0.2.0-gui.md`](docs/RELEASE_NOTES_v0.2.0-gui.md) | What changed in the GUI beta |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements/dev-lock.txt
 python -m gui
 ```
+
+Mind-map presets require an interactive acceptance pass on Windows/Linux X11.
+Wayland and macOS block those presets until qualified — see the support matrix.
 
 ### 1. Clone this repo
 
@@ -280,6 +290,8 @@ export PROMPT_FILE=~/projects/chatgpt-mindmap-to-xmind/prompts/prompt-mind-map.m
 
 ## Troubleshooting
 
+CLI issues:
+
 | Problem | Fix |
 |---------|-----|
 | Empty Markdown | Scanned PDF — try OCR in `convert_pdf.py` |
@@ -290,35 +302,39 @@ export PROMPT_FILE=~/projects/chatgpt-mindmap-to-xmind/prompts/prompt-mind-map.m
 | Spaces in PDF filename | Handled automatically (`lulu_fisio_images`) |
 | Parts show `—` for page range | Source markdown lacks `<!-- Page N -->` markers |
 
+GUI issues: [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md)
+
 ---
 
 ## Testing
 
-Full report: [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md)
-
-Validated on `lulu fisio.pdf` (252 pages, lecture notes):
-
-| Test | Result |
-|------|--------|
-| Segment + index (`--skip-convert --skip-mindmap`) | **PASS** — 92 topic parts |
-| Mind map (`--approve-segment --limit 1`) | **PASS** — OPML + XMind in ~2.3 min |
+| Report | Scope |
+|---|---|
+| [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md) | CLI on `lulu fisio.pdf` |
+| [`docs/RELEASE_QUALIFICATION_v0.2.0-gui.md`](docs/RELEASE_QUALIFICATION_v0.2.0-gui.md) | GUI + CLI automated gates |
 
 ```bash
-# Quick segment + index test
-./scripts/run_pipeline.sh "lulu fisio.pdf" --skip-convert --skip-mindmap --overwrite
+# Full automated qualification (GUI + CLI)
+bash scripts/ci/run_release_qualification.sh
 
-# Mind map smoke test (1 part)
+# Legacy CLI smoke tests
+./scripts/run_pipeline.sh "lulu fisio.pdf" --skip-convert --skip-mindmap --overwrite
 ./scripts/run_pipeline.sh "lulu fisio.pdf" --skip-convert --approve-segment --limit 1 --overwrite
 ```
+
+Interactive mind-map acceptance checklist:
+[`docs/INTERACTIVE_ACCEPTANCE_CHECKLIST.md`](docs/INTERACTIVE_ACCEPTANCE_CHECKLIST.md)
 
 ---
 
 ## Roadmap
 
+- [x] Cross-platform desktop GUI (beta on `feature/cross-platform-gui`)
+- [ ] Interactive mind-map acceptance on Windows + Linux X11
+- [ ] Orchestrator `--resume` for stopped/failed runs
 - [ ] Auto-translate study-focus descriptions to Persian
 - [ ] Full textbook chapter support (sanei-style structure)
 - [ ] pdf-to-markdown as a git submodule
-- [ ] Web UI or Obsidian plugin
 
 ---
 

@@ -4,7 +4,7 @@
 
 > **زبان‌ها:** [English — README.md](README.md) · فارسی (این صفحه)
 
-**نسخه:** v0.1.0 · **گزارش تست:** [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md)
+**نسخه:** CLI v0.1.0 · GUI بتا v0.2.0 · **گزارش‌ها:** [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md)، [`docs/RELEASE_QUALIFICATION_v0.2.0-gui.md`](docs/RELEASE_QUALIFICATION_v0.2.0-gui.md)
 
 ```
 PDF
@@ -85,16 +85,24 @@ the-final-study-ai/
 
 ## نصب
 
-### رابط گرافیکی (اجرای از سورس)
+### رابط گرافیکی (بتا)
 
-راهنمای نصب با وابستگی‌های قفل‌شده:
-[`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md)
+برنامهٔ دسکتاپ PySide6 با صفحات Setup، اجرای جدید، پیشرفت، بررسی، نتایج و تاریخچه.
+
+| سند | موضوع |
+|---|---|
+| [`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md) | نصب قفل‌شده و بسته‌بندی |
+| [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) | پشتیبانی سیستم‌عامل و presetها |
+| [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md) | عیب‌یابی GUI |
+| [`docs/RELEASE_NOTES_v0.2.0-gui.md`](docs/RELEASE_NOTES_v0.2.0-gui.md) | یادداشت انتشار GUI |
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements/dev-lock.txt
 python -m gui
 ```
+
+presetهای مایندمپ روی Wayland و macOS عمداً مسدود هستند تا پذیرش تعاملی کامل شود.
 
 ### ۱. Clone
 
@@ -215,6 +223,8 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
 
 ## عیب‌یابی
 
+CLI:
+
 | مشکل | راه‌حل |
 |------|--------|
 | Markdown خالی | PDF اسکن‌شده — OCR را در convert_pdf امتحان کنید |
@@ -224,21 +234,33 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
 | ایندکس PDF ساخته نشد | `PDF_TO_MD_PY` باید PyMuPDF داشته باشد |
 | فاصله در نام PDF | خودکار handle می‌شود (`lulu_fisio_images`) |
 
+GUI: [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md)
+
 ---
 
 ## تست
 
-گزارش کامل: [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md)
+| گزارش | محدوده |
+|---|---|
+| [`docs/TEST_v0.1.0.md`](docs/TEST_v0.1.0.md) | CLI روی `lulu fisio.pdf` |
+| [`docs/RELEASE_QUALIFICATION_v0.2.0-gui.md`](docs/RELEASE_QUALIFICATION_v0.2.0-gui.md) | دروازه‌های خودکار GUI + CLI |
 
 ```bash
+bash scripts/ci/run_release_qualification.sh
 ./scripts/run_pipeline.sh "lulu fisio.pdf" --skip-convert --skip-mindmap --overwrite
 ./scripts/run_pipeline.sh "lulu fisio.pdf" --skip-convert --approve-segment --limit 1 --overwrite
 ```
+
+چک‌لیست پذیرش تعاملی مایندمپ:
+[`docs/INTERACTIVE_ACCEPTANCE_CHECKLIST.md`](docs/INTERACTIVE_ACCEPTANCE_CHECKLIST.md)
 
 ---
 
 ## نقشهٔ راه
 
+- [x] رابط گرافیکی چندسکویی (بتا روی `feature/cross-platform-gui`)
+- [ ] پذیرش تعاملی مایندمپ روی ویندوز + لینوکس X11
+- [ ] `--resume` در orchestrator برای اجراهای متوقف‌شده
 - [ ] ترجمهٔ خودکار `توضیح مطالعه` به فارسی
 - [ ] پشتیبانی از کتاب‌های فصل‌دار (الگوی sanei کامل)
 - [ ] ادغام pdf-to-markdown به‌عنوان submodule

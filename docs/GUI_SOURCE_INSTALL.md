@@ -59,6 +59,13 @@ Outputs land in `dist/` and `gui/deployment/`. The compressed-size budget is
 **≤ 180 MiB** for internal builds. Public Windows/macOS releases require
 signing/notarization credentials outside this repository.
 
+## Related docs
+
+- Support matrix: [`SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md)
+- Troubleshooting: [`GUI_TROUBLESHOOTING.md`](GUI_TROUBLESHOOTING.md)
+- Release notes: [`RELEASE_NOTES_v0.2.0-gui.md`](RELEASE_NOTES_v0.2.0-gui.md)
+- Qualification report: [`RELEASE_QUALIFICATION_v0.2.0-gui.md`](RELEASE_QUALIFICATION_v0.2.0-gui.md)
+
 ## Notes
 
 - Persian translations ship as `gui/resources/translations/app_fa.qm`.

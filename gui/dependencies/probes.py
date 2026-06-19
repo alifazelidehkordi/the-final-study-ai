@@ -128,11 +128,36 @@ def probe_ocr() -> DependencyReport:
     )
 
 
+def _macos_mindmap_unavailable_report(project: Path) -> DependencyReport:
+    return DependencyReport(
+        dependency_id=DependencyId.MINDMAP_PROJECT,
+        title="Mind-map project",
+        purpose="Provides OPML and XMind browser automation.",
+        health=DependencyHealth.UNSUPPORTED,
+        detected_path=str(project),
+        detail=(
+            "macOS mind-map presets stay unavailable until interactive "
+            "browser-automation acceptance passes."
+        ),
+        blocks_presets=("complete", "mindmaps_only"),
+    )
+
+
+def _linux_session_kind() -> str:
+    if os.environ.get("DISPLAY"):
+        return "x11"
+    if os.environ.get("WAYLAND_DISPLAY"):
+        return "wayland"
+    return "headless"
+
+
 def probe_mindmap_project(
     tool_paths: ToolPaths,
     manifest: CompatibilityManifest,
 ) -> DependencyReport:
     project = tool_paths.mindmap_project
+    if sys.platform == "darwin":
+        return _macos_mindmap_unavailable_report(project)
     pipeline = tool_paths.mindmap_pipeline
     if not project.is_dir() or not pipeline.is_file():
         return DependencyReport(
@@ -242,18 +267,36 @@ def probe_linux_desktop() -> DependencyReport:
             detail="Not required on this platform.",
             blocks_presets=(),
         )
-    display = os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+    session = _linux_session_kind()
     tk_ready = importlib.util.find_spec("tkinter") is not None
     scrot = shutil.which("scrot") is not None
-    if display and tk_ready and scrot:
+    if session == "wayland":
+        return DependencyReport(
+            dependency_id=DependencyId.LINUX_DESKTOP,
+            title="Linux desktop support",
+            purpose="Screenshot and input automation on Linux desktops.",
+            health=DependencyHealth.UNSUPPORTED,
+            detail=(
+                "Wayland sessions are not qualified for mind-map automation. "
+                "Use an X11 desktop session for Complete and Mind Maps Only."
+            ),
+            blocks_presets=("complete", "mindmaps_only"),
+        )
+    if session == "headless" or not tk_ready:
+        return DependencyReport(
+            dependency_id=DependencyId.LINUX_DESKTOP,
+            title="Linux desktop support",
+            purpose="Screenshot and input automation on Linux desktops.",
+            health=DependencyHealth.MISSING,
+            detail="DISPLAY or Tkinter is unavailable.",
+            blocks_presets=("complete", "mindmaps_only"),
+        )
+    if scrot:
         health = DependencyHealth.READY
-        detail = None
-    elif display and tk_ready:
-        health = DependencyHealth.REPAIRABLE
-        detail = "Screenshot utility scrot was not found."
+        detail = "Qualified X11 desktop session detected."
     else:
-        health = DependencyHealth.MISSING
-        detail = "DISPLAY/WAYLAND_DISPLAY or Tkinter is unavailable."
+        health = DependencyHealth.REPAIRABLE
+        detail = "X11 session detected, but screenshot utility scrot was not found."
     return DependencyReport(
         dependency_id=DependencyId.LINUX_DESKTOP,
         title="Linux desktop support",
