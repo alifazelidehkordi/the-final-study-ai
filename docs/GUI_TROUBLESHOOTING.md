@@ -19,6 +19,17 @@
 | Profile locked | Close other GUI/CLI sessions using the same browser profile |
 | Login probe failed | Click **Run login probe**, sign in visibly, retry |
 
+## Windows
+
+| Symptom | Fix |
+|---|---|
+| SmartScreen blocks `__main__.exe` | More info → Run anyway (unsigned CI build) |
+| App won't start from zip | Extract the full zip; run `gui\deployment\__main__.dist\__main__.exe` |
+| `Activate.ps1` blocked | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| Mind-map presets greyed out | Open **Setup**, install Chrome + mind-map project, run login probe |
+
+Full walkthrough: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md)
+
 ## Linux desktop / Wayland
 
 | Symptom | Fix |

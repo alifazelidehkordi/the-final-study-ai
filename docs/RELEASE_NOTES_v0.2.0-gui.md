@@ -43,6 +43,11 @@ python -m pip install -r requirements/dev-lock.txt
 python -m gui
 ```
 
+## Install guides
+
+- Windows: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md)
+- All platforms (source): [`GUI_SOURCE_INSTALL.md`](GUI_SOURCE_INSTALL.md)
+
 ## Related documents
 
 - [`RELEASE_QUALIFICATION_v0.2.0-gui.md`](RELEASE_QUALIFICATION_v0.2.0-gui.md)

@@ -91,6 +91,7 @@ the-final-study-ai/
 
 | سند | موضوع |
 |---|---|
+| [`docs/GUI_WINDOWS_INSTALL.md`](docs/GUI_WINDOWS_INSTALL.md) | **راهنمای نصب و اجرا — Windows** |
 | [`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md) | نصب قفل‌شده و بسته‌بندی |
 | [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) | پشتیبانی سیستم‌عامل و presetها |
 | [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md) | عیب‌یابی GUI |
