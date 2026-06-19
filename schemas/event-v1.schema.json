@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alifazelidehkordi/the-final-study-ai/schemas/event-v1.schema.json",
+  "title": "Final Study Pipeline Event v1",
+  "type": "object",
+  "required": ["schema", "version", "run_id", "seq", "time", "type", "stage", "data"],
+  "properties": {
+    "schema": {"const": "final-study.event"},
+    "version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "seq": {"type": "integer", "minimum": 1},
+    "time": {"type": "string", "format": "date-time"},
+    "type": {"type": "string", "minLength": 1},
+    "stage": {"type": "string", "minLength": 1},
+    "data": {"type": "object"}
+  },
+  "additionalProperties": true
+}

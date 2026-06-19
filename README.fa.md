@@ -196,7 +196,8 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
 
 `run_pipeline.sh` اکنون wrapper سازگار با نسخه‌های قبلی است و اجرای اصلی را به
 `scripts/run_pipeline.py` می‌سپارد. entry point پایتونی علاوه بر فلگ‌های قبلی،
-گزینه‌های `--event-file`، `--start-at` و `--stop-after` را برای GUI فراهم می‌کند.
+گزینه‌های `--event-file`، `--manifest-file`، `--start-at` و `--stop-after` را
+برای GUI فراهم می‌کند. JSON Schemaهای نسخه‌بندی‌شده در `schemas/` قرار دارند.
 
 ---
 

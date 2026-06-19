@@ -12,8 +12,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 from uuid import uuid4
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.pipeline_contracts import (  # noqa: E402
+    EventWriter,
+    new_run_manifest,
+    save_run_manifest,
+    set_run_status,
+)
 
 EXIT_SUCCESS = 0
 EXIT_FATAL = 1
@@ -21,40 +32,11 @@ EXIT_PARTIAL = 2
 EXIT_REVIEW_REQUIRED = 20
 
 STAGES = ("conversion", "segmentation", "mindmap")
-ROOT = Path(__file__).resolve().parent.parent
 SEGMENT_SCRIPT = ROOT / "scripts" / "segment_markdown_study_parts.py"
 
 
 class PipelineError(RuntimeError):
     """Expected pipeline configuration or execution failure."""
-
-
-class EventWriter:
-    """Append versioned events to a UTF-8 JSON Lines file."""
-
-    def __init__(self, path: Path | None, run_id: str) -> None:
-        self.path = path
-        self.run_id = run_id
-        self.sequence = 0
-
-    def emit(self, event_type: str, stage: str, **data: object) -> None:
-        if self.path is None:
-            return
-        self.sequence += 1
-        payload = {
-            "schema": "final-study.event",
-            "version": 1,
-            "run_id": self.run_id,
-            "seq": self.sequence,
-            "time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "type": event_type,
-            "stage": stage,
-            "data": data,
-        }
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(payload, ensure_ascii=False) + "\n")
-            stream.flush()
 
 
 @dataclass(frozen=True)
@@ -155,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("pdf", nargs="?", type=Path, help="source PDF")
     parser.add_argument("--work-dir", type=Path)
     parser.add_argument("--event-file", type=Path)
+    parser.add_argument("--manifest-file", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--log-file", type=Path)
 
@@ -491,20 +474,67 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_id = args.run_id or uuid4().hex
     event_path = args.event_file.expanduser().resolve() if args.event_file else None
     events = EventWriter(event_path, run_id)
+    manifest_path: Path | None = None
+    manifest: dict[str, Any] | None = None
 
     try:
         options = normalize_options(args)
         paths = resolve_paths(args, options)
         tooling = discover_tooling()
         log_path = args.log_file.expanduser().resolve() if args.log_file else None
+        if args.manifest_file is not None:
+            manifest_path = args.manifest_file.expanduser().resolve()
+            preset = (
+                "mindmaps_only"
+                if options.start_at == "mindmap"
+                else "markdown_index"
+                if options.stop_after == "segmentation"
+                else "complete"
+            )
+            manifest = new_run_manifest(
+                run_id=run_id,
+                preset=preset,
+                source={
+                    "kind": "work_dir" if paths.pdf is None else "pdf",
+                    "path": str(paths.work_dir if paths.pdf is None else paths.pdf),
+                },
+                paths={
+                    "work_dir": str(paths.work_dir),
+                    "event_file": str(event_path) if event_path else "",
+                    "log_file": str(log_path) if log_path else "",
+                },
+                options={
+                    "granularity": options.granularity,
+                    "ocr": options.ocr,
+                    "index_language": options.index_language,
+                    "overwrite": options.overwrite,
+                    "limit": options.limit,
+                },
+            )
+            save_run_manifest(manifest_path, manifest)
+            set_run_status(manifest_path, manifest, "running")
         with HumanLog(log_path) as log:
             code = execute(paths, tooling, options, log, events)
+            if manifest_path is not None and manifest is not None:
+                status = {
+                    EXIT_SUCCESS: "completed",
+                    EXIT_PARTIAL: "partial",
+                    EXIT_REVIEW_REQUIRED: "awaiting_review",
+                }.get(code, "failed")
+                set_run_status(manifest_path, manifest, status)
             if code not in (EXIT_SUCCESS, EXIT_PARTIAL, EXIT_REVIEW_REQUIRED):
                 events.emit("run.failed", "finalize", exit_code=code)
             return code
     except PipelineError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         events.emit("run.failed", "preflight", error=str(exc))
+        if manifest_path is not None and manifest is not None:
+            set_run_status(
+                manifest_path,
+                manifest,
+                "failed",
+                last_error={"code": "E_CHILD_PROCESS", "detail": str(exc)},
+            )
         return EXIT_FATAL
     except KeyboardInterrupt:
         print("ERROR: interrupted.", file=sys.stderr)

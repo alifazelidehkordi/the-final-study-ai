@@ -134,6 +134,7 @@ def test_markdown_and_index_exits_without_review_gate(
         "(work / 'SEGMENTATION_PREVIEW.md').write_text('# Preview', encoding='utf-8')\n",
     )
     events = tmp_path / "events.jsonl"
+    manifest = tmp_path / "run.json"
     monkeypatch.setenv("PDF_TO_MD_PY", sys.executable)
     monkeypatch.setenv("PDF_TO_MD_SCRIPT", str(converter))
     monkeypatch.setattr(pipeline, "SEGMENT_SCRIPT", segmenter)
@@ -147,6 +148,8 @@ def test_markdown_and_index_exits_without_review_gate(
             "segmentation",
             "--event-file",
             str(events),
+            "--manifest-file",
+            str(manifest),
         )
     )
 
@@ -154,6 +157,7 @@ def test_markdown_and_index_exits_without_review_gate(
     event_types = [json.loads(line)["type"] for line in events.read_text().splitlines()]
     assert "review.required" not in event_types
     assert event_types[-1] == "run.completed"
+    assert json.loads(manifest.read_text())["status"] == "completed"
 
 
 def test_complete_pipeline_returns_review_exit_and_event(
@@ -176,6 +180,7 @@ def test_complete_pipeline_returns_review_exit_and_event(
         "(work / 'SEGMENTATION_PREVIEW.md').write_text('# Preview', encoding='utf-8')\n",
     )
     events = tmp_path / "events.jsonl"
+    manifest = tmp_path / "run.json"
     monkeypatch.setattr(pipeline, "SEGMENT_SCRIPT", segmenter)
 
     code = pipeline.main(
@@ -186,6 +191,8 @@ def test_complete_pipeline_returns_review_exit_and_event(
             "--skip-convert",
             "--event-file",
             str(events),
+            "--manifest-file",
+            str(manifest),
         )
     )
 
@@ -195,6 +202,7 @@ def test_complete_pipeline_returns_review_exit_and_event(
     assert [payload["seq"] for payload in payloads] == list(
         range(1, len(payloads) + 1)
     )
+    assert json.loads(manifest.read_text())["status"] == "awaiting_review"
 
 
 def test_wrapper_help_delegates_to_python() -> None:

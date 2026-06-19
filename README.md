@@ -246,12 +246,14 @@ The pipeline **pauses after Step 2** (unless you use `--skip-mindmap` or `--appr
 | `--log-file PATH` | Append full stdout/stderr to a log file |
 | `--work-dir PATH` | Custom workspace (default: `<pdf_dir>/<stem>_work`) |
 | `--event-file PATH` | Append machine-readable JSONL progress events |
+| `--manifest-file PATH` | Persist Run Manifest v1 atomically |
 | `--start-at STAGE` | Start at `conversion`, `segmentation`, or `mindmap` |
 | `--stop-after STAGE` | Finish successfully after a selected stage |
 
 `run_pipeline.sh` is now a compatibility wrapper around
 `scripts/run_pipeline.py`. Existing flags remain available, while the Python
 entry point provides the platform-neutral contract used by the future GUI.
+Versioned JSON Schemas live in `schemas/`.
 
 ### Environment variables
 

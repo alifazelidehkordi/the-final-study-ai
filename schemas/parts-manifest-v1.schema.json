@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alifazelidehkordi/the-final-study-ai/schemas/parts-manifest-v1.schema.json",
+  "title": "Final Study Parts Manifest v1",
+  "type": "object",
+  "required": [
+    "schema", "version", "source", "granularity", "index_language", "parts"
+  ],
+  "properties": {
+    "schema": {"const": "final-study.parts"},
+    "version": {"const": 1},
+    "source": {"type": "object"},
+    "granularity": {"enum": ["fine", "normal", "coarse"]},
+    "index_language": {"type": "string", "minLength": 1},
+    "parts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "filename", "sha256"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "filename": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "start_page": {"type": ["integer", "null"], "minimum": 1},
+          "end_page": {"type": ["integer", "null"], "minimum": 1}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}
