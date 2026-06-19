@@ -10,7 +10,11 @@ from gui.pipeline.exit_codes import (
 from gui.pipeline.models import AdvancedOptions, RunPreset, RunRequest
 from gui.pipeline.process_controller import PipelineProcessController, PipelineRunState
 from gui.pipeline.progress_tracker import ProgressSnapshot, ProgressTracker
-from gui.pipeline.resume_adapter import build_approve_command, build_regenerate_command
+from gui.pipeline.resume_adapter import (
+    build_approve_command,
+    build_regenerate_command,
+    build_resume_command,
+)
 from gui.pipeline.run_store import RunSummary, list_runs
 from gui.pipeline.validation import DiskSpaceCheck, ValidationIssue, validate_run_request
 
@@ -32,6 +36,7 @@ __all__ = [
     "build_approve_command",
     "build_pipeline_command",
     "build_regenerate_command",
+    "build_resume_command",
     "list_runs",
     "validate_run_request",
 ]

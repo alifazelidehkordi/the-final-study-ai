@@ -32,6 +32,83 @@ def executable_script(path: Path, body: str) -> Path:
     return path
 
 
+def write_resume_manifest(
+    path: Path,
+    *,
+    pdf: Path,
+    work: Path,
+    status: str = "failed",
+    preset: str = "complete",
+    pdf_hash: str | None = None,
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "schema": "final-study.run",
+                "version": 1,
+                "run_id": "resume-run",
+                "created_at": "2026-06-19T10:00:00Z",
+                "updated_at": "2026-06-19T10:05:00Z",
+                "status": status,
+                "preset": preset,
+                "source": {
+                    "kind": "pdf",
+                    "path": str(pdf),
+                    **({"sha256": pdf_hash} if pdf_hash else {}),
+                },
+                "paths": {
+                    "work_dir": str(work),
+                    "event_file": str(path.parent / "events.jsonl"),
+                    "log_file": str(path.parent / "run.log"),
+                },
+                "options": {
+                    "granularity": "normal",
+                    "ocr": "off",
+                    "index_language": "Persian",
+                    "overwrite": True,
+                    "limit": None,
+                },
+                "tool_versions": {},
+                "stages": {},
+                "items": {},
+                "artifacts": [],
+                "last_error": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_valid_parts(work: Path, markdown: Path) -> None:
+    parts = work / "parts"
+    parts.mkdir(parents=True)
+    part = parts / "01_Topic.md"
+    part.write_text("# Topic\nBody\n", encoding="utf-8")
+    (work / "parts-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "final-study.parts",
+                "version": 1,
+                "source": {
+                    "markdown_sha256": hashlib.sha256(markdown.read_bytes()).hexdigest(),
+                },
+                "parts": [
+                    {
+                        "id": "part-001",
+                        "filename": part.name,
+                        "sha256": hashlib.sha256(part.read_bytes()).hexdigest(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (work / "STUDY_INDEX.md").write_text(
+        "# Study Index\n\n- [Topic](parts/01_Topic.md)\n",
+        encoding="utf-8",
+    )
+
+
 def test_legacy_skip_flags_map_to_canonical_stages() -> None:
     _, options = parse("--skip-convert", "book.pdf")
     assert options.start_at == "segmentation"
@@ -276,6 +353,125 @@ def test_mindmaps_only_requires_and_accepts_valid_parts_manifest(
 
     assert pipeline_script.is_file()
     assert code == pipeline.EXIT_SUCCESS
+
+
+def test_resume_stage_restarts_conversion_when_pdf_changed(tmp_path: Path) -> None:
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"changed")
+    work = tmp_path / "work"
+    manifest_path = tmp_path / "run.json"
+    write_resume_manifest(
+        manifest_path,
+        pdf=pdf,
+        work=work,
+        pdf_hash=hashlib.sha256(b"original").hexdigest(),
+    )
+
+    manifest = pipeline.load_run_manifest(manifest_path)
+
+    assert pipeline.resume_stage(manifest) == "conversion"
+
+
+def test_resume_stage_uses_segmentation_when_parts_are_missing(tmp_path: Path) -> None:
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"pdf")
+    pdf.with_suffix(".md").write_text(
+        "<!-- Page 1 -->\n# Topic\n",
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "run.json"
+    write_resume_manifest(manifest_path, pdf=pdf, work=tmp_path / "work")
+
+    manifest = pipeline.load_run_manifest(manifest_path)
+
+    assert pipeline.resume_stage(manifest) == "segmentation"
+
+
+def test_resume_failed_run_reaches_review_gate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"pdf")
+    pdf.with_suffix(".md").write_text(
+        "<!-- Page 1 -->\n# Topic\n",
+        encoding="utf-8",
+    )
+    work = tmp_path / "work"
+    manifest_path = tmp_path / "run.json"
+    write_resume_manifest(manifest_path, pdf=pdf, work=work)
+    segmenter = executable_script(
+        tmp_path / "segment.py",
+        "from pathlib import Path\n"
+        "import sys\n"
+        "work = Path(sys.argv[sys.argv.index('--output-dir') + 1])\n"
+        "(work / 'parts').mkdir(parents=True, exist_ok=True)\n"
+        "(work / 'SEGMENTATION_PREVIEW.md').write_text('# Preview', encoding='utf-8')\n",
+    )
+    monkeypatch.setattr(pipeline, "SEGMENT_SCRIPT", segmenter)
+
+    code = pipeline.main(("--resume", str(manifest_path)))
+
+    assert code == pipeline.EXIT_REVIEW_REQUIRED
+    assert json.loads(manifest_path.read_text())["status"] == "awaiting_review"
+
+
+def test_resume_with_valid_parts_continues_at_mindmap_without_overwrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"pdf")
+    markdown = pdf.with_suffix(".md")
+    markdown.write_text("<!-- Page 1 -->\n# Topic\n", encoding="utf-8")
+    work = tmp_path / "work"
+    write_valid_parts(work, markdown)
+    manifest_path = tmp_path / "run.json"
+    write_resume_manifest(manifest_path, pdf=pdf, work=work)
+
+    project = tmp_path / "mindmap"
+    python_path = project / ".venv/bin/python"
+    python_path.parent.mkdir(parents=True)
+    python_path.symlink_to(sys.executable)
+    captured = tmp_path / "mindmap-argv.json"
+    executable_script(
+        project / "scripts/pipeline.py",
+        "import json\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        f"Path({str(captured)!r}).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')\n",
+    )
+    prompt = project / "prompts/prompt-mind-map.md"
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("prompt", encoding="utf-8")
+    monkeypatch.setenv("MINDMAP_PROJECT", str(project))
+
+    code = pipeline.main(("--resume", str(manifest_path)))
+
+    assert code == pipeline.EXIT_SUCCESS
+    assert "--overwrite" not in json.loads(captured.read_text(encoding="utf-8"))
+    assert json.loads(manifest_path.read_text())["status"] == "completed"
+
+
+def test_resume_rejects_non_resumable_status(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"pdf")
+    manifest_path = tmp_path / "run.json"
+    write_resume_manifest(
+        manifest_path,
+        pdf=pdf,
+        work=tmp_path / "work",
+        status="completed",
+    )
+
+    code = pipeline.main(("--resume", str(manifest_path)))
+
+    assert code == pipeline.EXIT_FATAL
+    assert "Run status is not resumable: completed" in capsys.readouterr().err
+    assert json.loads(manifest_path.read_text())["status"] == "completed"
 
 
 def test_wrapper_help_delegates_to_python() -> None:

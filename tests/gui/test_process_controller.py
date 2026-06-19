@@ -28,6 +28,8 @@ def test_process_controller_runs_helper_script(qtbot, qapp, tmp_path: Path) -> N
         log_file=command.log_file,
         stop_file=command.stop_file,
     )
+    replaced.stop_file.parent.mkdir(parents=True, exist_ok=True)
+    replaced.stop_file.write_text("stale\n", encoding="utf-8")
 
     controller = PipelineProcessController()
     lines: list[str] = []
@@ -37,6 +39,7 @@ def test_process_controller_runs_helper_script(qtbot, qapp, tmp_path: Path) -> N
     controller.start(replaced)
 
     assert controller.is_running()
+    assert not replaced.stop_file.exists()
     qtbot.waitUntil(lambda: len(finished) > 0, timeout=10_000)
     assert finished[0][0] == 0
     assert "hello-from-helper" in lines

@@ -259,10 +259,18 @@ class MainShell(QMainWindow):
 
     def _resume_from_manifest(self, manifest_path: Path) -> None:
         from gui.pipeline.contracts_bridge import load_run_manifest
+        from gui.pipeline.resume_adapter import build_resume_command
 
-        manifest = load_run_manifest(manifest_path)
-        if manifest.get("status") == "awaiting_review":
-            self._show_review(manifest_path)
+        try:
+            manifest = load_run_manifest(manifest_path)
+            if manifest.get("status") == "awaiting_review":
+                self._show_review(manifest_path)
+                return
+            command = build_resume_command(manifest_path)
+            self._pipeline_controller.start(command)
+            self._on_run_started(command)
+        except (OSError, RuntimeError, ValueError) as exc:
+            self._status.set_summary(str(exc))
 
     def _update_status_from_snapshot(self, snapshot: ProgressSnapshot) -> None:
         if snapshot.item_total:

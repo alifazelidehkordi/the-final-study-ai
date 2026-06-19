@@ -24,14 +24,14 @@
 
 - `run_pipeline.sh` remains a compatibility wrapper; the GUI calls `run_pipeline.py` directly.
 - Mind-map project must be on ref `feature/pipeline-events` (see compatibility manifest).
-- `--resume` in the orchestrator is still not implemented; History shows resume as unavailable except for review continuation.
+- `--resume` validates persisted artifacts and restarts at conversion, segmentation, or mind-map as required.
 
 ## Known limitations
 
 - macOS mind-map presets are blocked until interactive acceptance passes.
 - Linux Wayland sessions block mind-map presets; X11 is required for automation.
 - Hosted CI does not run live ChatGPT / Selenium acceptance.
-- Manifest-based resume for stopped/failed runs is documented but not yet wired in the orchestrator.
+- Resume intentionally works only at validated stage boundaries; an interrupted in-flight browser item is retried.
 
 ## Upgrade from v0.1.0 CLI
 

@@ -143,10 +143,8 @@ class HistoryPage(QWidget):
             self._resume_button.setToolTip(self.tr("Open segmentation review."))
             return
         if self._selected.status in _RESUMABLE_STATUSES:
-            self._resume_button.setEnabled(False)
-            self._resume_button.setToolTip(
-                self.tr("Manifest resume is not available in this build yet.")
-            )
+            self._resume_button.setEnabled(True)
+            self._resume_button.setToolTip(self.tr("Resume from validated artifacts."))
             return
         self._resume_button.setEnabled(False)
         self._resume_button.setToolTip("")

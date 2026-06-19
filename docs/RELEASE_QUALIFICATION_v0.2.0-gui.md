@@ -16,9 +16,9 @@ bash scripts/ci/run_release_qualification.sh
 | Gate | Result |
 |---|---|
 | Ruff | PASS |
-| MyPy (52 GUI/script modules) | PASS |
-| Bandit (`gui/`, login probe) | PASS |
-| pytest GUI + CLI (64 collected, 4 screenshot tests skipped) | **60 PASS**, 4 SKIP |
+| MyPy (53 GUI/script modules) | PASS |
+| Bandit (`gui/`, `scripts/`) | PASS |
+| pytest GUI + CLI (72 collected, 4 screenshot tests skipped) | **68 PASS**, 4 SKIP |
 | GUI resource validation | PASS |
 | Offscreen launch smoke | PASS |
 | CLI regression (`run_pipeline`, mind-map integration, contracts, validators, segmentation) | PASS |
@@ -30,6 +30,7 @@ bash scripts/ci/run_release_qualification.sh
 - `run_pipeline.py` review exit `20`, cooperative stop exit `21`
 - JSONL monotonic `seq`, manifest atomic writes
 - Parts manifest hashing and artifact validators
+- Manifest resume invalidation across conversion, segmentation, and mind-map stages
 - Mind-map integration with `--event-file` / `--stop-file`
 
 ### GUI
@@ -39,7 +40,7 @@ bash scripts/ci/run_release_qualification.sh
 - Progress from JSONL with ETA sampling rules
 - Review approve/regenerate commands
 - Results artifact catalog with changed-file warnings
-- History listing from `runs/*/run.json`
+- History listing and integrity-validated resume from `runs/*/run.json`
 - Persian RTL shell translations (pytest-qt)
 - CI packaging workflow on Windows, Ubuntu, macOS
 

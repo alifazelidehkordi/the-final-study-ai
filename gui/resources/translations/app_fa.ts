@@ -9,6 +9,13 @@
     </message>
 </context>
 <context>
+    <name>HistoryPage</name>
+    <message>
+        <source>Resume from validated artifacts.</source>
+        <translation>ادامه از خروجی‌های اعتبارسنجی‌شده.</translation>
+    </message>
+</context>
+<context>
     <name>NavigationRail</name>
     <message>
         <source>Setup</source>

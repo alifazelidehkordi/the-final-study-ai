@@ -20,7 +20,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.pipeline_contracts import (  # noqa: E402
+    ContractError,
     EventWriter,
+    load_run_manifest,
     new_run_manifest,
     save_run_manifest,
     set_run_status,
@@ -180,11 +182,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def normalize_options(args: argparse.Namespace) -> PipelineOptions:
-    if args.resume is not None:
-        raise PipelineError("--resume requires Run Manifest v1; it is not implemented yet.")
-    if args.retry_failed:
-        raise PipelineError("--retry-failed requires Run Manifest v1.")
-
     start_at = args.rerun or args.start_at
     stop_after = args.stop_after
 
@@ -210,6 +207,130 @@ def normalize_options(args: argparse.Namespace) -> PipelineOptions:
         limit=args.limit,
         stop_file=args.stop_file.expanduser().resolve() if args.stop_file else None,
     )
+
+
+def _manifest_options(args: argparse.Namespace, manifest: dict[str, Any]) -> None:
+    options = manifest.get("options")
+    if not isinstance(options, dict):
+        raise PipelineError("Run manifest options are invalid.")
+    args.granularity = str(options.get("granularity", "normal"))
+    args.index_language = str(options.get("index_language", "Persian"))
+    args.ocr = str(options.get("ocr", "off"))
+    limit = options.get("limit")
+    args.limit = limit if isinstance(limit, int) and limit > 0 else None
+    # Resume must preserve validated outputs rather than regenerate them.
+    args.overwrite = False
+
+
+def _parts_are_valid(work_dir: Path, markdown: Path | None) -> bool:
+    from scripts.artifact_validators import (
+        ArtifactValidationError,
+        sha256_file,
+        validate_index_markdown,
+        validate_parts_manifest,
+    )
+
+    try:
+        parts_manifest = validate_parts_manifest(work_dir / "parts-manifest.json")
+        parts = parts_manifest.get("parts")
+        if not isinstance(parts, list) or not parts:
+            return False
+        source = parts_manifest.get("source")
+        if markdown is not None and isinstance(source, dict):
+            expected = source.get("markdown_sha256")
+            if isinstance(expected, str) and sha256_file(markdown) != expected:
+                return False
+        validate_index_markdown(work_dir / "STUDY_INDEX.md", expected_parts=len(parts))
+    except (ArtifactValidationError, OSError):
+        return False
+    return True
+
+
+def resume_stage(manifest: dict[str, Any]) -> str:
+    """Return the first stage that must run after validating persisted artifacts."""
+    from scripts.artifact_validators import ArtifactValidationError, sha256_file, validate_markdown
+
+    source = manifest.get("source")
+    paths = manifest.get("paths")
+    if not isinstance(source, dict) or not isinstance(paths, dict):
+        raise PipelineError("Run manifest is missing source or paths.")
+    raw_work_dir = paths.get("work_dir")
+    if not isinstance(raw_work_dir, str) or not raw_work_dir:
+        raise PipelineError("Run manifest has no work directory.")
+    work_dir = Path(raw_work_dir).expanduser()
+
+    if source.get("kind") == "work_dir":
+        if not _parts_are_valid(work_dir, None):
+            raise PipelineError("Mind Maps Only cannot resume because study parts are invalid.")
+        return "mindmap"
+
+    pdf = Path(str(source.get("path", ""))).expanduser()
+    if not pdf.is_file():
+        raise PipelineError(f"Resume source PDF not found: {pdf}")
+    expected_pdf_hash = source.get("sha256")
+    if isinstance(expected_pdf_hash, str) and sha256_file(pdf) != expected_pdf_hash:
+        return "conversion"
+
+    markdown = pdf.with_suffix(".md")
+    try:
+        validate_markdown(markdown)
+    except ArtifactValidationError:
+        return "conversion"
+    if not _parts_are_valid(work_dir, markdown):
+        return "segmentation"
+    return "mindmap"
+
+
+def apply_resume_manifest(
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    if args.resume is None:
+        if args.retry_failed:
+            raise PipelineError("--retry-failed requires --resume.")
+        return None
+
+    manifest_path = args.resume.expanduser().resolve()
+    try:
+        manifest = load_run_manifest(manifest_path)
+    except ContractError as exc:
+        raise PipelineError(str(exc)) from exc
+    status = str(manifest.get("status"))
+    if status == "awaiting_review":
+        raise PipelineError("Awaiting-review runs must use --approve-segmentation.")
+    if status not in {"stopped", "interrupted", "partial", "failed"}:
+        raise PipelineError(f"Run status is not resumable: {status}")
+
+    source = manifest["source"]
+    paths = manifest["paths"]
+    if not isinstance(source, dict) or not isinstance(paths, dict):
+        raise PipelineError("Run manifest is missing source or paths.")
+    args.pdf = Path(str(source["path"])) if source.get("kind") == "pdf" else None
+    args.work_dir = Path(str(paths["work_dir"]))
+    raw_event = paths.get("event_file")
+    raw_log = paths.get("log_file")
+    args.event_file = Path(raw_event) if isinstance(raw_event, str) and raw_event else None
+    args.log_file = Path(raw_log) if isinstance(raw_log, str) and raw_log else None
+    args.manifest_file = manifest_path
+    args.run_id = str(manifest["run_id"])
+    args.stop_file = args.stop_file or manifest_path.parent / "stop.requested"
+    _manifest_options(args, manifest)
+
+    stage = resume_stage(manifest)
+    args.start_at = stage
+    args.rerun = None
+    args.skip_convert = stage != "conversion"
+    args.skip_segment = stage == "mindmap"
+    args.mindmap_only = source.get("kind") == "work_dir"
+    args.require_valid_parts = stage == "mindmap"
+    args.approve_segmentation = stage == "mindmap"
+    args.overwrite = stage == "conversion"
+    args.stop_after = "segmentation" if manifest["preset"] == "markdown_index" else None
+    if manifest["preset"] == "markdown_index" and stage == "mindmap":
+        # All requested outputs already validate; complete without regenerating.
+        args.start_at = "segmentation"
+        args.skip_convert = False
+        args.skip_segment = True
+    return manifest
 
 
 def resolve_paths(args: argparse.Namespace, options: PipelineOptions) -> PipelinePaths:
@@ -520,47 +641,67 @@ def execute(
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    run_id = args.run_id or uuid4().hex
-    event_path = args.event_file.expanduser().resolve() if args.event_file else None
-    events = EventWriter(event_path, run_id)
     manifest_path: Path | None = None
     manifest: dict[str, Any] | None = None
+    events = EventWriter(None, "uninitialized")
 
     try:
+        resumed_manifest = apply_resume_manifest(args)
+        if resumed_manifest is not None:
+            manifest = resumed_manifest
+            manifest_path = args.resume.expanduser().resolve()
+        run_id = args.run_id or uuid4().hex
+        event_path = args.event_file.expanduser().resolve() if args.event_file else None
+        events = EventWriter(event_path, run_id)
         options = normalize_options(args)
         paths = resolve_paths(args, options)
         tooling = discover_tooling()
         log_path = args.log_file.expanduser().resolve() if args.log_file else None
         if args.manifest_file is not None:
             manifest_path = args.manifest_file.expanduser().resolve()
-            preset = (
-                "mindmaps_only"
-                if options.start_at == "mindmap"
-                else "markdown_index"
-                if options.stop_after == "segmentation"
-                else "complete"
-            )
-            manifest = new_run_manifest(
-                run_id=run_id,
-                preset=preset,
-                source={
+            if resumed_manifest is not None:
+                manifest = resumed_manifest
+            else:
+                preset = (
+                    "mindmaps_only"
+                    if options.start_at == "mindmap"
+                    else "markdown_index"
+                    if options.stop_after == "segmentation"
+                    else "complete"
+                )
+                source_path = paths.work_dir if paths.pdf is None else paths.pdf
+                source: dict[str, Any] = {
                     "kind": "work_dir" if paths.pdf is None else "pdf",
-                    "path": str(paths.work_dir if paths.pdf is None else paths.pdf),
-                },
-                paths={
-                    "work_dir": str(paths.work_dir),
-                    "event_file": str(event_path) if event_path else "",
-                    "log_file": str(log_path) if log_path else "",
-                },
-                options={
-                    "granularity": options.granularity,
-                    "ocr": options.ocr,
-                    "index_language": options.index_language,
-                    "overwrite": options.overwrite,
-                    "limit": options.limit,
-                },
-            )
-            save_run_manifest(manifest_path, manifest)
+                    "path": str(source_path),
+                }
+                if paths.pdf is not None:
+                    from scripts.artifact_validators import sha256_file
+
+                    source.update(
+                        {
+                            "size": paths.pdf.stat().st_size,
+                            "mtime_ns": paths.pdf.stat().st_mtime_ns,
+                            "sha256": sha256_file(paths.pdf),
+                        }
+                    )
+                manifest = new_run_manifest(
+                    run_id=run_id,
+                    preset=preset,
+                    source=source,
+                    paths={
+                        "work_dir": str(paths.work_dir),
+                        "event_file": str(event_path) if event_path else "",
+                        "log_file": str(log_path) if log_path else "",
+                    },
+                    options={
+                        "granularity": options.granularity,
+                        "ocr": options.ocr,
+                        "index_language": options.index_language,
+                        "overwrite": options.overwrite,
+                        "limit": options.limit,
+                    },
+                )
+                save_run_manifest(manifest_path, manifest)
             set_run_status(manifest_path, manifest, "running")
         with HumanLog(log_path) as log:
             code = execute(paths, tooling, options, log, events)

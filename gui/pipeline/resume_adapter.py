@@ -149,3 +149,29 @@ def build_regenerate_command(manifest_path: Path, *, granularity: str) -> Pipeli
         log_file=log_file,
         stop_file=stop_file,
     )
+
+
+def build_resume_command(manifest_path: Path) -> PipelineCommand:
+    manifest = load_run_manifest(manifest_path)
+    run_id = str(manifest["run_id"])
+    paths = manifest.get("paths")
+    if not isinstance(paths, dict):
+        raise ValueError("Run manifest is missing paths.")
+    work_dir = Path(str(paths["work_dir"]))
+    manifest_file, event_file, log_file, stop_file = _artifact_paths(run_id, manifest)
+    return PipelineCommand(
+        run_id=run_id,
+        argv=(
+            sys.executable,
+            str(orchestrator_script()),
+            "--resume",
+            str(manifest_path),
+            "--stop-file",
+            str(stop_file),
+        ),
+        work_dir=work_dir,
+        event_file=event_file,
+        manifest_file=manifest_file,
+        log_file=log_file,
+        stop_file=stop_file,
+    )

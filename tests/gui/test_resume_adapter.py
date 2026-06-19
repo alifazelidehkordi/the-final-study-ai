@@ -7,6 +7,7 @@ from gui.pipeline.resume_adapter import (
     adjust_granularity,
     build_approve_command,
     build_regenerate_command,
+    build_resume_command,
 )
 
 
@@ -94,3 +95,27 @@ def test_build_regenerate_command_reruns_segmentation(tmp_path: Path, monkeypatc
     assert "--rerun" in command.argv
     assert "segmentation" in command.argv
     assert "fine" in command.argv
+
+
+def test_build_resume_command_uses_manifest_contract(tmp_path: Path, monkeypatch) -> None:
+    manifest = tmp_path / "run.json"
+    _write_manifest(manifest)
+    monkeypatch.setattr(
+        "gui.pipeline.resume_adapter.run_artifacts",
+        lambda run_id: type(
+            "Artifacts",
+            (),
+            {
+                "manifest": manifest,
+                "events": tmp_path / "events.jsonl",
+                "log": tmp_path / "run.log",
+                "stop_file": tmp_path / "stop.requested",
+            },
+        )(),
+    )
+
+    command = build_resume_command(manifest)
+
+    assert "--resume" in command.argv
+    assert str(manifest) in command.argv
+    assert "--stop-file" in command.argv

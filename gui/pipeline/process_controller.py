@@ -42,6 +42,7 @@ class PipelineProcessController(QObject):
     def start(self, command: PipelineCommand) -> None:
         if self.is_running():
             raise RuntimeError("A pipeline run is already active.")
+        command.stop_file.unlink(missing_ok=True)
         process = QProcess(self)
         process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         process.readyReadStandardOutput.connect(self._emit_output)

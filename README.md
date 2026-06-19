@@ -331,7 +331,7 @@ Interactive mind-map acceptance checklist:
 
 - [x] Cross-platform desktop GUI (beta on `feature/cross-platform-gui`)
 - [ ] Interactive mind-map acceptance on Windows + Linux X11
-- [ ] Orchestrator `--resume` for stopped/failed runs
+- [x] Integrity-validated orchestrator `--resume` for stopped/failed runs
 - [ ] Auto-translate study-focus descriptions to Persian
 - [ ] Full textbook chapter support (sanei-style structure)
 - [ ] pdf-to-markdown as a git submodule

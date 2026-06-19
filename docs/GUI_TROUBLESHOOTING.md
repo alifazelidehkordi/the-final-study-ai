@@ -42,7 +42,7 @@
 | No item counts yet | Wait for JSONL events; segmentation and mind-map stages emit items |
 | ETA says “Calculating estimate” | Normal until two items complete |
 | Stop After Current Item missing | Only shown during mind-map stages with stop-file support |
-| Stop Now | Kills the process tree; interrupted item must be retried after resume support lands |
+| Stop Now | Kills the process tree; use History → Resume to continue from the last validated boundary |
 
 ## Review / results
 
@@ -50,7 +50,7 @@
 |---|---|
 | Stuck after segmentation | Expected for Complete preset — approve or regenerate in Review |
 | Results show “changed” | Source artifact hash differs from manifest; rerun affected stage |
-| History resume disabled | Orchestrator `--resume` not implemented yet; use Review for `awaiting_review` |
+| History resume disabled | Only stopped, interrupted, partial, and failed runs can resume; use Review for `awaiting_review` |
 
 ## Packaging
 

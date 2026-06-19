@@ -7,7 +7,7 @@ from gui.tokens import LIGHT_COLORS
 from gui.widgets.history_page import HistoryPage
 
 
-def _write_run(run_dir: Path) -> None:
+def _write_run(run_dir: Path, *, status: str = "completed") -> None:
     run_dir.mkdir(parents=True)
     pdf_path = str(run_dir / "book.pdf")
     work_dir = str(run_dir / "book_work")
@@ -19,7 +19,7 @@ def _write_run(run_dir: Path) -> None:
                 "run_id": run_dir.name,
                 "created_at": "2026-06-19T10:00:00Z",
                 "updated_at": "2026-06-19T10:00:00Z",
-                "status": "completed",
+                "status": status,
                 "preset": "markdown_index",
                 "source": {"kind": "pdf", "path": pdf_path},
                 "paths": {
@@ -52,3 +52,18 @@ def test_history_page_lists_runs(qtbot, qapp, tmp_path: Path, monkeypatch) -> No
     qtbot.addWidget(page)
     page.refresh_runs()
     assert page._runs.count() == 1
+
+
+def test_history_page_enables_resume_for_interrupted_run(
+    qtbot,
+    qapp,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("gui.pipeline.run_store.runs_dir", lambda: tmp_path)
+    _write_run(tmp_path / "run-a", status="interrupted")
+    page = HistoryPage(LIGHT_COLORS)
+    qtbot.addWidget(page)
+    page.refresh_runs()
+
+    assert page._resume_button.isEnabled()
