@@ -46,6 +46,7 @@ python -m gui
 ## Install guides
 
 - Windows: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md)
+- Linux: [`GUI_LINUX_INSTALL.md`](GUI_LINUX_INSTALL.md)
 - All platforms (source): [`GUI_SOURCE_INSTALL.md`](GUI_SOURCE_INSTALL.md)
 
 ## Related documents

@@ -79,5 +79,5 @@ require signing/notarization credentials outside the repository.
 | presetهای مایندمپ | پس از تست تعاملی | پس از تست تعاملی | **مسدود** | **مسدود** |
 | RTL فارسی | پشتیبانی می‌شود | پشتیبانی می‌شود | پشتیبانی می‌شود | پشتیبانی می‌شود |
 
-راهنمای نصب: [`GUI_SOURCE_INSTALL.md`](GUI_SOURCE_INSTALL.md)  
+راهنمای نصب: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md) · [`GUI_LINUX_INSTALL.md`](GUI_LINUX_INSTALL.md) · [`GUI_SOURCE_INSTALL.md`](GUI_SOURCE_INSTALL.md)  
 عیب‌یابی: [`GUI_TROUBLESHOOTING.md`](GUI_TROUBLESHOOTING.md)

@@ -100,6 +100,7 @@ Cross-platform PySide6 app with Setup, New Run, Progress, Review, Results, and H
 | Document | Purpose |
 |---|---|
 | [`docs/GUI_WINDOWS_INSTALL.md`](docs/GUI_WINDOWS_INSTALL.md) | **Windows install and run guide** |
+| [`docs/GUI_LINUX_INSTALL.md`](docs/GUI_LINUX_INSTALL.md) | **Linux install and run guide** |
 | [`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md) | Locked install and packaging |
 | [`docs/SUPPORT_MATRIX.md`](docs/SUPPORT_MATRIX.md) | OS / preset support |
 | [`docs/GUI_TROUBLESHOOTING.md`](docs/GUI_TROUBLESHOOTING.md) | Common GUI issues |

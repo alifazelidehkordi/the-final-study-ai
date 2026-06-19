@@ -30,13 +30,17 @@
 
 Full walkthrough: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md)
 
-## Linux desktop / Wayland
+## Linux
 
 | Symptom | Fix |
 |---|---|
-| Complete / Mind Maps Only blocked on Wayland | Log into an **X11** session or use Markdown & Index only |
-| Linux desktop repairable | Install `scrot` and ensure `python3-tk` is available |
-| Headless server | GUI shell can run offscreen; mind-map automation requires a desktop |
+| `ImportError: libEGL.so.1` | `sudo apt install libegl1 libgl1 libglib2.0-0 libxkbcommon0 libxcb-cursor0` |
+| Complete / Mind Maps Only blocked on Wayland | Log into an **X11** session (`Ubuntu on Xorg`) or use Markdown & Index only |
+| Linux desktop repairable | `sudo apt install python3-tk scrot` |
+| Packaged `.bin` won't start | Keep full `__main__.dist` folder; `chmod +x`; install Qt system libs |
+| Headless server | GUI shell can run offscreen; mind-map automation requires a desktop with `DISPLAY` |
+
+Full walkthrough: [`GUI_LINUX_INSTALL.md`](GUI_LINUX_INSTALL.md)
 
 ## New Run
 

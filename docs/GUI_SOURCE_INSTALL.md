@@ -62,6 +62,7 @@ signing/notarization credentials outside this repository.
 ## Related docs
 
 - Windows guide: [`GUI_WINDOWS_INSTALL.md`](GUI_WINDOWS_INSTALL.md)
+- Linux guide: [`GUI_LINUX_INSTALL.md`](GUI_LINUX_INSTALL.md)
 - Support matrix: [`SUPPORT_MATRIX.md`](SUPPORT_MATRIX.md)
 - Troubleshooting: [`GUI_TROUBLESHOOTING.md`](GUI_TROUBLESHOOTING.md)
 - Release notes: [`RELEASE_NOTES_v0.2.0-gui.md`](RELEASE_NOTES_v0.2.0-gui.md)
