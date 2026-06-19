@@ -12,6 +12,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+from scripts.file_lock import lock_exclusive_blocking, unlock
+
 EVENT_SCHEMA = "final-study.event"
 EVENT_VERSION = 1
 RUN_SCHEMA = "final-study.run"
@@ -49,31 +51,12 @@ def exclusive_file_lock(path: Path) -> Iterator[None]:
             lock_stream.write(b"\0")
             lock_stream.flush()
         lock_stream.seek(0)
-        if os.name == "nt":
-            import msvcrt
-
-            msvcrt.locking(  # type: ignore[attr-defined]
-                lock_stream.fileno(),
-                msvcrt.LK_LOCK,  # type: ignore[attr-defined]
-                1,
-            )
-            try:
-                yield
-            finally:
-                lock_stream.seek(0)
-                msvcrt.locking(  # type: ignore[attr-defined]
-                    lock_stream.fileno(),
-                    msvcrt.LK_UNLCK,  # type: ignore[attr-defined]
-                    1,
-                )
-        else:
-            import fcntl
-
-            fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_stream.fileno(), fcntl.LOCK_UN)
+        lock_exclusive_blocking(lock_stream)
+        try:
+            yield
+        finally:
+            lock_stream.seek(0)
+            unlock(lock_stream)
 
 
 class EventWriter:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -38,43 +37,26 @@ def read_lock_status(path: Path | None = None) -> ProfileLockStatus:
 
 @contextmanager
 def acquire_profile_lock(owner: str, path: Path | None = None) -> Iterator[None]:
+    from scripts.file_lock import try_lock_exclusive, unlock
+
     lock_file = path or profile_lock_path()
     lock_file.parent.mkdir(parents=True, exist_ok=True)
     with lock_file.open("a+b") as stream:
         stream.seek(0)
-        if os.name == "nt":
-            import msvcrt
-
-            try:
-                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
-            except OSError as exc:
-                raise ProfileLockError(f"Browser profile is already locked: {owner}") from exc
-            try:
-                stream.seek(0)
-                stream.truncate(0)
-                stream.write(f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n".encode())
-                stream.flush()
-                yield
-            finally:
-                stream.seek(0)
-                stream.truncate(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
-        else:
-            import fcntl
-
-            try:
-                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                status = read_lock_status(lock_file)
-                raise ProfileLockError(
-                    f"Browser profile is already locked: {status.owner or 'unknown'}"
-                ) from exc
-            try:
-                stream.seek(0)
-                stream.truncate(0)
-                stream.write(f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n".encode())
-                stream.flush()
-                yield
-            finally:
-                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+        try:
+            try_lock_exclusive(stream)
+        except (BlockingIOError, OSError) as exc:
+            status = read_lock_status(lock_file)
+            holder = status.owner or owner
+            raise ProfileLockError(f"Browser profile is already locked: {holder}") from exc
+        try:
+            stream.seek(0)
+            stream.truncate(0)
+            stream.write(f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n".encode())
+            stream.flush()
+            yield
+        finally:
+            stream.seek(0)
+            stream.truncate(0)
+            unlock(stream)
     lock_file.unlink(missing_ok=True)

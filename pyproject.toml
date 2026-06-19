@@ -38,6 +38,7 @@ target-version = "py310"
 include = [
   "gui/**/*.py",
   "scripts/artifact_validators.py",
+  "scripts/file_lock.py",
   "scripts/pipeline_contracts.py",
   "scripts/run_pipeline.py",
   "tests/**/*.py"
