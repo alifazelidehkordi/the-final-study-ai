@@ -5,11 +5,14 @@ requires-python = ">=3.10"
 dependencies = ["defusedxml>=0.7,<1"]
 
 [project.optional-dependencies]
+gui = ["PySide6>=6.8,<7"]
 dev = [
   "bandit>=1.8,<2",
   "jsonschema>=4.23,<5",
   "mypy>=1.15,<3",
+  "PySide6>=6.8,<7",
   "pytest>=8,<10",
+  "pytest-qt>=4.4,<5",
   "ruff>=0.11,<1",
   "types-defusedxml>=0.7"
 ]
@@ -17,27 +20,38 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+qt_api = "pyside6"
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 include = [
+  "gui/**/*.py",
   "scripts/artifact_validators.py",
   "scripts/pipeline_contracts.py",
   "scripts/run_pipeline.py",
-  "tests/*.py"
+  "tests/**/*.py"
 ]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "S"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S603"]
+"tests/**" = ["S101", "S603"]
 
 [tool.mypy]
 python_version = "3.10"
 strict = true
 files = [
+  "gui/app.py",
+  "gui/i18n.py",
+  "gui/layout.py",
+  "gui/navigation.py",
+  "gui/settings.py",
+  "gui/themes.py",
+  "gui/tokens.py",
+  "gui/widgets/path_label.py",
+  "gui/widgets/shell.py",
   "scripts/artifact_validators.py",
   "scripts/pipeline_contracts.py",
   "scripts/run_pipeline.py"
