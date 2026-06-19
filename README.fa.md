@@ -64,6 +64,7 @@ chmod +x scripts/*.sh scripts/*.py
 the-final-study-ai/
 ├── scripts/
 │   ├── run_pipeline.sh              # orchestrator (3 مرحله)
+│   ├── run_pipeline.py              # orchestrator اصلی و چندسکویی
 │   ├── segment_markdown_study_parts.py  # تقسیم موضوعی + ایندکس
 │   ├── export_study_index_pdf.py    # STUDY_INDEX.md → PDF
 │   └── combine_parts_to_sections.py # ابزار کمکی
@@ -174,6 +175,9 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
    - **ریزتر** → `--granularity fine`
 
 > با `--skip-mindmap` مرحلهٔ تأیید رد نمی‌شود — فقط وقتی قرار است مایندمپ اجرا شود.
+>
+> توقف برای بازبینی با کد خروج `20` مشخص می‌شود. این وضعیت برای GUI و ابزارهای
+> اتوماسیون به معنی «در انتظار تأیید» است، نه خطای پایپ‌لاین.
 
 ---
 
@@ -189,6 +193,10 @@ cd ~/projects/chatgpt-mindmap-to-xmind && ./setup.sh
 | `--limit N` | فقط N پارت اول در مایندمپ |
 | `--overwrite` | بازنویسی خروجی |
 | `--log-file PATH` | ذخیرهٔ لاگ کامل |
+
+`run_pipeline.sh` اکنون wrapper سازگار با نسخه‌های قبلی است و اجرای اصلی را به
+`scripts/run_pipeline.py` می‌سپارد. entry point پایتونی علاوه بر فلگ‌های قبلی،
+گزینه‌های `--event-file`، `--start-at` و `--stop-after` را برای GUI فراهم می‌کند.
 
 ---
 

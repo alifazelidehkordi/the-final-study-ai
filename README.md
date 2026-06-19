@@ -71,6 +71,7 @@ After reviewing `SEGMENTATION_PREVIEW.md` and `STUDY_INDEX.md`:
 the-final-study-ai/
 ├── scripts/
 │   ├── run_pipeline.sh                 # 3-step orchestrator
+│   ├── run_pipeline.py                 # canonical cross-platform orchestrator
 │   ├── segment_markdown_study_parts.py # topic split + bilingual index
 │   ├── export_study_index_pdf.py       # STUDY_INDEX.md → PDF
 │   └── combine_parts_to_sections.py    # optional: merge parts into one file
@@ -224,6 +225,9 @@ The pipeline **pauses after Step 2** (unless you use `--skip-mindmap` or `--appr
    - **Finer** → re-run with `--granularity fine`
 
 > `--skip-mindmap` does **not** trigger the review pause — the pause only applies when Step 3 would run.
+>
+> The review gate exits with status `20`. This is an expected “awaiting review”
+> state for GUI and automation clients, not a pipeline failure.
 
 ---
 
@@ -241,6 +245,13 @@ The pipeline **pauses after Step 2** (unless you use `--skip-mindmap` or `--appr
 | `--overwrite` | Overwrite generated outputs |
 | `--log-file PATH` | Append full stdout/stderr to a log file |
 | `--work-dir PATH` | Custom workspace (default: `<pdf_dir>/<stem>_work`) |
+| `--event-file PATH` | Append machine-readable JSONL progress events |
+| `--start-at STAGE` | Start at `conversion`, `segmentation`, or `mindmap` |
+| `--stop-after STAGE` | Finish successfully after a selected stage |
+
+`run_pipeline.sh` is now a compatibility wrapper around
+`scripts/run_pipeline.py`. Existing flags remain available, while the Python
+entry point provides the platform-neutral contract used by the future GUI.
 
 ### Environment variables
 

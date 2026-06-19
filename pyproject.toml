@@ -1,0 +1,27 @@
+[project]
+name = "the-final-study-ai"
+version = "0.2.0.dev0"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+include = ["scripts/run_pipeline.py", "tests/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S603"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["scripts/run_pipeline.py"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
