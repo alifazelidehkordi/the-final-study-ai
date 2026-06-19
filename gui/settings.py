@@ -28,12 +28,14 @@ class AppSettings:
     locale: LocaleCode = LocaleCode.EN
     theme_mode: ThemeMode = ThemeMode.SYSTEM
     ui_scale: float = 1.0
+    last_login_probe_status: str = "unknown"
 
     def save(self) -> None:
         store = QSettings(ORGANIZATION, APPLICATION)
         store.setValue("locale", self.locale.value)
         store.setValue("theme_mode", self.theme_mode.value)
         store.setValue("ui_scale", self.ui_scale)
+        store.setValue("last_login_probe_status", self.last_login_probe_status)
 
     @classmethod
     def load(cls) -> AppSettings:
@@ -42,4 +44,10 @@ class AppSettings:
         theme = ThemeMode(store.value("theme_mode", ThemeMode.SYSTEM.value))
         raw_scale = store.value("ui_scale", 1.0)
         scale = float(raw_scale) if isinstance(raw_scale, (int, float, str)) else 1.0
-        return cls(locale=locale, theme_mode=theme, ui_scale=scale)
+        login_status = store.value("last_login_probe_status", "unknown")
+        return cls(
+            locale=locale,
+            theme_mode=theme,
+            ui_scale=scale,
+            last_login_probe_status=str(login_status),
+        )

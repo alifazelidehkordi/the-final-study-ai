@@ -17,6 +17,7 @@ from gui.layout import LayoutState, layout_state_for_width, minimum_window_size
 from gui.navigation import NAV_ITEMS, NavDestination, NavigationRail
 from gui.tokens import SPACING, STATUS_MAX_WIDTH, STATUS_MIN_WIDTH, ColorTokens
 from gui.widgets.path_label import PathLabel
+from gui.widgets.setup_page import SetupPage
 
 _SCREEN_COPY: dict[NavDestination, tuple[str, str]] = {
     NavDestination.SETUP: (
@@ -164,9 +165,12 @@ class MainShell(QMainWindow):
         self._workspace_layout.setContentsMargins(0, 0, 0, 0)
         self._workspace_scroll.setWidget(self._workspace_host)
 
-        self._pages: dict[NavDestination, _WorkspacePage] = {}
+        self._pages: dict[NavDestination, QWidget] = {}
         for item in NAV_ITEMS:
-            page = _WorkspacePage(item.destination, colors, self._workspace_host)
+            if item.destination == NavDestination.SETUP:
+                page: QWidget = SetupPage(colors, self._workspace_host)
+            else:
+                page = _WorkspacePage(item.destination, colors, self._workspace_host)
             self._pages[item.destination] = page
             self._workspace_layout.addWidget(page)
             page.setVisible(item.destination == NavDestination.NEW_RUN)
@@ -190,7 +194,8 @@ class MainShell(QMainWindow):
         self._navigation.set_colors(colors)
         self._status.set_colors(colors)
         for page in self._pages.values():
-            page.set_colors(colors)
+            if hasattr(page, "set_colors"):
+                page.set_colors(colors)
 
     def layout_state(self) -> LayoutState:
         return layout_state_for_width(self.width())
@@ -200,7 +205,8 @@ class MainShell(QMainWindow):
         self._navigation.retranslate_ui()
         self._status.retranslate_ui()
         for page in self._pages.values():
-            page.retranslate_ui()
+            if hasattr(page, "retranslate_ui"):
+                page.retranslate_ui()
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().resizeEvent(event)
