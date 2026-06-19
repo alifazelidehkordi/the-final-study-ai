@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shlex
-import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.dependencies.installer import run_confirmed_install_command
 from gui.dependencies.models import DependencyHealth, DependencyReport, InstallPlan
 from gui.dependencies.registry import DependencyRegistry
 from gui.paths import browser_profile_dir
@@ -161,14 +160,9 @@ class SetupPage(QWidget):
 
     def _run_install_plan(self, plan: InstallPlan) -> None:
         for command in plan.planned_commands:
-            stripped = command.strip()
-            if (
-                plan.requires_privilege
-                or stripped.startswith("sudo ")
-                or "&&" in stripped
-            ):
+            if plan.requires_privilege:
                 continue
-            subprocess.run(shlex.split(stripped), check=False)
+            run_confirmed_install_command(command, self)
 
     def start_login_probe(self) -> None:
         if self._probe_process is not None and self._probe_process.state() != QProcess.ProcessState.NotRunning:
