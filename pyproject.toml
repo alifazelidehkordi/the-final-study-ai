@@ -1,8 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "the-final-study-ai"
 version = "0.2.0.dev0"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = ["defusedxml>=0.7,<1", "packaging>=24,<26"]
+
+[project.scripts]
+the-final-study-ai-gui = "gui.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["gui*", "scripts*"]
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.8,<7"]
@@ -47,30 +57,13 @@ select = ["E", "F", "I", "UP", "B", "SIM", "S"]
 [tool.mypy]
 python_version = "3.10"
 strict = true
-files = [
-  "gui/app.py",
-  "gui/i18n.py",
-  "gui/layout.py",
-  "gui/navigation.py",
-  "gui/settings.py",
-  "gui/themes.py",
-  "gui/tokens.py",
-  "gui/dependencies/installer.py",
-  "gui/dependencies/manifest.py",
-  "gui/dependencies/models.py",
-  "gui/dependencies/profile_lock.py",
-  "gui/dependencies/providers.py",
-  "gui/dependencies/probes.py",
-  "gui/dependencies/registry.py",
-  "gui/dependencies/tool_paths.py",
-  "gui/paths.py",
-  "gui/widgets/install_dialog.py",
-  "gui/widgets/path_label.py",
-  "gui/widgets/setup_page.py",
-  "gui/widgets/shell.py",
-  "scripts/artifact_validators.py",
-  "scripts/pipeline_contracts.py",
-  "scripts/run_pipeline.py"
+packages = ["gui", "scripts"]
+exclude = [
+  "scripts/segment_markdown_study_parts.py",
+  "scripts/export_study_index_pdf.py",
+  "scripts/combine_parts_to_sections.py",
+  "scripts/chatgpt_login_probe.py",
+  "scripts/ci/record_package_sizes.py",
 ]
 
 [tool.bandit]

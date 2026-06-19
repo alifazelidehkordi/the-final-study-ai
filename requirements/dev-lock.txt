@@ -1,0 +1,9 @@
+# Locked developer/CI toolchain. Includes GUI runtime lock.
+-r gui-lock.txt
+bandit==1.9.4
+jsonschema==4.26.0
+mypy==2.1.0
+pytest==9.1.1
+pytest-qt==4.5.0
+ruff==0.15.18
+types-defusedxml==0.7.0.20260504

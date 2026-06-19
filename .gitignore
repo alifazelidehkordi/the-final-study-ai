@@ -26,3 +26,8 @@ chrome_profile/
 
 # Local design exploration artifacts
 .superpowers/
+
+# GUI packaging outputs
+dist/
+gui/deployment/
+package-size-report.json

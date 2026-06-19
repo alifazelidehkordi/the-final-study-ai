@@ -85,6 +85,17 @@ the-final-study-ai/
 
 ## نصب
 
+### رابط گرافیکی (اجرای از سورس)
+
+راهنمای نصب با وابستگی‌های قفل‌شده:
+[`docs/GUI_SOURCE_INSTALL.md`](docs/GUI_SOURCE_INSTALL.md)
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -r requirements/dev-lock.txt
+python -m gui
+```
+
 ### ۱. Clone
 
 ```bash
