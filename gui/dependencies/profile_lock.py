@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NoReturn
 
 from gui.paths import profile_lock_path
 
@@ -49,18 +50,27 @@ def acquire_profile_lock(owner: str, path: Path | None = None) -> Iterator[None]
     lock_file = path or profile_lock_path()
     meta_file = _lock_meta_path(lock_file)
     lock_file.parent.mkdir(parents=True, exist_ok=True)
-    with lock_file.open("a+b") as stream:
-        stream.seek(0)
-        if stream.read(1) == b"":
-            stream.write(b"\0")
-            stream.flush()
-        stream.seek(0)
+
+    def _raise_already_locked(exc: BaseException) -> NoReturn:
+        status = read_lock_status(lock_file)
+        holder = status.owner or owner
+        raise ProfileLockError(f"Browser profile is already locked: {holder}") from exc
+
+    try:
+        stream_ctx = lock_file.open("a+b")
+    except (BlockingIOError, PermissionError, OSError) as exc:
+        _raise_already_locked(exc)
+
+    with stream_ctx as stream:
         try:
+            stream.seek(0)
+            if stream.read(1) == b"":
+                stream.write(b"\0")
+                stream.flush()
+            stream.seek(0)
             try_lock_exclusive(stream)
-        except (BlockingIOError, OSError) as exc:
-            status = read_lock_status(lock_file)
-            holder = status.owner or owner
-            raise ProfileLockError(f"Browser profile is already locked: {holder}") from exc
+        except (BlockingIOError, PermissionError, OSError) as exc:
+            _raise_already_locked(exc)
         try:
             meta_file.write_text(
                 f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n",
