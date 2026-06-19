@@ -1,5 +1,9 @@
 # Cross-Platform GUI Design
 
+> Normative implementation contracts are defined in
+> [`2026-06-19-cross-platform-gui-contracts.md`](2026-06-19-cross-platform-gui-contracts.md).
+> Where this vision document is broad, the contracts document takes precedence.
+
 ## Summary
 
 The Final Study AI will gain a polished desktop GUI for Windows, macOS, and
@@ -50,7 +54,8 @@ Version 1 processes one PDF per run. Batch queues are explicitly out of scope.
 - Output-directory selection.
 - Granularity selection through the segmentation review flow.
 - Live stage, item count, elapsed time, and estimated remaining time.
-- Pause/stop at supported safe boundaries, retry, and resume.
+- Stop after the current mind-map item where supported, stop immediately,
+  retry, and resume at validated boundaries.
 - Run history stored locally.
 - Output discovery and open-file/open-folder actions.
 - Persian and English localization.
@@ -97,6 +102,19 @@ variables. It exposes typed operations such as:
 
 The adapter is the only GUI component allowed to know command-line details.
 
+#### Platform Entry Point
+
+`scripts/run_pipeline.py` becomes the canonical cross-platform orchestrator.
+The GUI calls it directly with an explicit Python executable and argument list.
+It cannot depend on Bash or platform-specific virtual-environment names.
+
+`scripts/run_pipeline.sh` remains a compatibility wrapper that maps legacy
+flags to the Python orchestrator. A Windows `.cmd` wrapper may delegate to the
+same entry point, but neither wrapper is used by the GUI. The mind-map project
+is invoked through its existing `scripts/pipeline.py` with the environment
+discovered according to the companion contracts document.
+
+
 #### Process Controller
 
 Uses `QProcess` to start and monitor external programs without blocking the UI.
@@ -104,13 +122,11 @@ Arguments are passed as separate values rather than shell-concatenated strings.
 The controller streams standard output and error, reports process state, and
 maps exit codes into structured results.
 
-The controller must not execute the full pipeline through a Unix-only shell on
-Windows. Platform-neutral Python entry points will be introduced where needed,
-while the existing shell scripts remain supported for current CLI users.
+The controller never executes the full pipeline through a platform shell.
 
 #### Progress Parser
 
-Converts pipeline events or recognizable output lines into structured state:
+Converts versioned JSONL pipeline events into structured state:
 
 - active stage;
 - completed and total items;
@@ -120,9 +136,9 @@ Converts pipeline events or recognizable output lines into structured state:
 - warning or failure details;
 - output artifacts discovered.
 
-Where current scripts do not expose reliable progress, they will gain a
-backward-compatible machine-readable event stream. Plain human-readable output
-will remain available.
+Machine progress never relies on regex parsing of human logs. Participating
+tools append JSON Lines to `--event-file`; human output remains unchanged.
+Precise mind-map progress requires the same contract in the mind-map repository.
 
 #### Run Store
 
@@ -214,8 +230,10 @@ At narrow widths:
 - controlled scrolling is enabled;
 - controls never overlap or clip.
 
-The initial window has a practical laptop-oriented minimum size. Platform
-window chrome and text scaling are included in layout testing.
+The minimum content size is `1024 × 700` device-independent pixels. At widths
+`>= 1280`, the layout uses three columns. From `1024–1279`, columns become
+compact. Below `1024`, a recovery layout moves status below the workspace and
+enables controlled scrolling.
 
 Responsive decisions use the available application-window width, not the
 physical screen size. Layouts reflow through explicit window-width states
@@ -239,8 +257,10 @@ dependency as Ready, Missing, Unsupported, Repairable, or Checking. Each item
 explains why it is needed. Install/repair opens a confirmation sheet listing
 the exact action and whether administrator privileges are required.
 
-The screen also launches the dedicated browser profile so the user can log into
-ChatGPT manually. Login state is detected but credentials are never collected.
+The screen launches the dedicated browser profile for manual login. A visible
+Selenium probe opens `chatgpt.com` with that exact profile and reports Ready only
+when the prompt editor is usable. It never reads cookies to infer login. The
+profile has one exclusive lock shared by Setup and pipeline runs.
 
 #### 2. New Run
 
@@ -252,7 +272,10 @@ Contains:
 - preset cards;
 - a single primary Start action;
 - a collapsed Advanced section for granularity, limits, overwrite behavior,
+  OCR mode, index language, custom work directory, reusable-stage controls,
   custom tool paths, and diagnostics.
+
+Mind Maps Only replaces the PDF picker with an existing-work-directory picker.
 
 Unavailable presets explain which dependency is missing and link to Setup.
 
@@ -268,7 +291,7 @@ Shows:
 - completed artifact counts;
 - concise recent activity;
 - expandable full logs;
-- safe Stop/Pause and Retry actions when applicable.
+- Stop After Current Item, Stop Now, and Retry actions when applicable.
 
 Mind-map progress is item-based, such as `17 of 24`. Remaining time uses the
 observed duration of completed items. Until enough samples exist, the label is
@@ -286,6 +309,10 @@ Actions open the preview and index in native viewers. The user can:
 - stop with current outputs preserved.
 
 Regeneration clearly identifies which outputs will be replaced.
+
+The review gate emits `review.required` and exits `20`. The GUI maps it to
+`awaiting_review`, never success or failure. Markdown & Index exits successfully
+after segmentation and does not enter the gate.
 
 #### 5. Results
 
@@ -328,9 +355,14 @@ platform independently. Signing and notarization configuration is supported,
 but publishing signed artifacts requires platform credentials outside the
 repository.
 
-The packaged GUI includes its own Python/Qt runtime. Large external systems,
-browser automation assets, and OS-level dependencies are detected and installed
-or linked through Setup rather than being silently bundled without validation.
+The package includes GUI, Python/Qt runtime, translations, orchestrator,
+segmentation/index code, schemas, and diagnostics. It excludes Chrome, browser
+profiles, OCR engines, and the separate mind-map repository.
+
+The initial compressed-size budget is `<= 180 MiB`. Public Windows/macOS
+production releases require signing/notarization; unsigned builds are internal.
+The current mind-map project documents Linux and Windows only. macOS mind-map
+presets remain Experimental/Unavailable until interactive tests pass.
 
 ## Dependency Installation Policy
 
@@ -347,12 +379,13 @@ or linked through Setup rather than being silently bundled without validation.
 
 ## Resume, Stop, and Failure Semantics
 
-- A safe stop asks the current tool to terminate gracefully, waits for a bounded
-  period, then offers forced termination with a warning.
+- Version 1 does not pause inside a ChatGPT request.
+- Stop After Current Item appears only after the mind-map dependency supports a
+  cooperative stop file checked between parts. Until then only Stop Now exists.
+- Stop Now terminates the process tree and invalidates the active partial item.
 - Completed artifacts are retained.
 - A run is resumable only at explicit stage or item boundaries.
-- Resume skips outputs that pass integrity checks; existence alone is not
-  sufficient.
+- Resume uses the normative integrity table; existence alone is insufficient.
 - Overwrite decisions are explicit and recorded in the run manifest.
 - A crash or power loss is recognized on next launch from a run left in an
   active state.
@@ -403,12 +436,14 @@ or linked through Setup rather than being silently bundled without validation.
 - responsive transition of the status panel;
 - visual regression snapshots for core screens.
 
+UI behavior uses `pytest-qt`; deterministic screenshots use fixed fonts, scale,
+locale, theme, and window size.
+
 ### Packaging Tests
 
-Each platform CI job launches the packaged application, checks bundled resource
-loading, runs dependency diagnostics, and executes a fixture workflow without
-browser automation. Browser automation receives a separate smoke test where a
-valid local test profile is available.
+The CI matrix uses Windows, Ubuntu, and macOS hosted runners for package launch
+and non-browser fixtures. Hosted CI does not prove PyAutoGUI; production support
+requires an interactive acceptance run per supported OS.
 
 ### Regression Protection
 
@@ -417,16 +452,17 @@ core changes. GUI tests may not replace CLI regression tests.
 
 ## Delivery Sequence
 
-1. Introduce machine-readable pipeline progress while preserving CLI output.
-2. Add run manifests, artifact validation, and resume rules.
-3. Build the PySide6 application shell and responsive design tokens.
-4. Implement Setup and dependency providers.
-5. Implement New Run and process orchestration.
-6. Implement Progress and segmentation review.
-7. Implement Results and History.
-8. Add localization, RTL, theme behavior, and accessibility checks.
-9. Add native packaging and platform CI.
-10. Complete visual regression, installer, and end-to-end acceptance tests.
+1. Add `run_pipeline.py`, canonical exit codes, and preset contracts.
+2. Add JSONL events to participating repositories without changing human CLI.
+3. Add manifest v1, integrity validators, and resume invalidation rules.
+4. Build the shell together with `.ts/.qm` localization, RTL/LTR, high-DPI,
+   responsive tokens, and keyboard foundations.
+5. Implement Setup, dependency providers, profile lock, and login probe.
+6. Implement PDF and existing-work-directory New Run flows.
+7. Implement progress, supported stop controls, and review protocol.
+8. Implement Results and History.
+9. Add packaging and platform CI.
+10. Complete visual, installer, and interactive acceptance tests.
 
 ## Acceptance Criteria
 
@@ -442,6 +478,18 @@ core changes. GUI tests may not replace CLI regression tests.
   environments.
 - Privileged changes never occur without an immediately preceding confirmation.
 - ChatGPT credentials are never requested or logged by the application.
+
+## Runtime and Localization Constraints
+
+- One run lock permits one active pipeline across GUI instances.
+- Free space must meet `max(1 GiB, 3 × source size)`; below
+  `max(5 GiB, 5 × source size)` requires warning confirmation.
+- Drag-and-drop always has native Browse fallback.
+- Linux X11/Wayland screenshot and input capability is probed before automation.
+- UI locale and index language are independent settings.
+- Translation sources are Qt `.ts` files compiled to `.qm`.
+- Latin paths and filenames use isolated LTR runs inside Persian layouts.
+- Version 1 targets WCAG 2.2 AA contrast and keyboard behavior where applicable.
 
 ## Design References
 
