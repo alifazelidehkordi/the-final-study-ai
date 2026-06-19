@@ -15,8 +15,11 @@ from PySide6.QtWidgets import (
 
 from gui.layout import LayoutState, layout_state_for_width, minimum_window_size
 from gui.navigation import NAV_ITEMS, NavDestination, NavigationRail
+from gui.pipeline.process_controller import PipelineProcessController
 from gui.tokens import SPACING, STATUS_MAX_WIDTH, STATUS_MIN_WIDTH, ColorTokens
+from gui.widgets.new_run_page import NewRunPage
 from gui.widgets.path_label import PathLabel
+from gui.widgets.progress_page import ProgressPage
 from gui.widgets.setup_page import SetupPage
 
 _SCREEN_COPY: dict[NavDestination, tuple[str, str]] = {
@@ -152,6 +155,8 @@ class MainShell(QMainWindow):
         self._content_layout.setContentsMargins(0, 0, 0, 0)
         self._content_layout.setSpacing(0)
 
+        self._pipeline_controller = PipelineProcessController(self)
+
         self._navigation = NavigationRail(colors, self._content_row)
         self._navigation.destination_changed.connect(self._show_destination)
 
@@ -169,6 +174,11 @@ class MainShell(QMainWindow):
         for item in NAV_ITEMS:
             if item.destination == NavDestination.SETUP:
                 page: QWidget = SetupPage(colors, self._workspace_host)
+            elif item.destination == NavDestination.NEW_RUN:
+                page = NewRunPage(colors, self._pipeline_controller, self._workspace_host)
+                page.run_started.connect(self._on_run_started)
+            elif item.destination == NavDestination.PROGRESS:
+                page = ProgressPage(colors, self._pipeline_controller, self._workspace_host)
             else:
                 page = _WorkspacePage(item.destination, colors, self._workspace_host)
             self._pages[item.destination] = page
@@ -216,6 +226,10 @@ class MainShell(QMainWindow):
         destination = NavDestination(destination_value)
         for key, page in self._pages.items():
             page.setVisible(key == destination)
+
+    def _on_run_started(self, _command: object) -> None:
+        self._navigation.select(NavDestination.PROGRESS)
+        self._show_destination(NavDestination.PROGRESS.value)
 
     def _apply_layout_state(self, state: LayoutState) -> None:
         self.setProperty("layoutState", state.value)
