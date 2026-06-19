@@ -22,12 +22,19 @@ class ProfileLockError(RuntimeError):
     """Raised when the browser profile is already in use."""
 
 
+def _lock_meta_path(lock_file: Path) -> Path:
+    return lock_file.with_name(f"{lock_file.name}.meta")
+
+
 def read_lock_status(path: Path | None = None) -> ProfileLockStatus:
     lock_file = path or profile_lock_path()
     if not lock_file.exists():
         return ProfileLockStatus(locked=False)
+    meta_file = _lock_meta_path(lock_file)
+    if not meta_file.exists():
+        return ProfileLockStatus(locked=True)
     try:
-        payload = lock_file.read_text(encoding="utf-8").strip().splitlines()
+        payload = meta_file.read_text(encoding="utf-8").strip().splitlines()
     except OSError:
         return ProfileLockStatus(locked=True)
     owner = payload[0] if payload else None
@@ -40,8 +47,13 @@ def acquire_profile_lock(owner: str, path: Path | None = None) -> Iterator[None]
     from scripts.file_lock import try_lock_exclusive, unlock
 
     lock_file = path or profile_lock_path()
+    meta_file = _lock_meta_path(lock_file)
     lock_file.parent.mkdir(parents=True, exist_ok=True)
     with lock_file.open("a+b") as stream:
+        stream.seek(0)
+        if stream.read(1) == b"":
+            stream.write(b"\0")
+            stream.flush()
         stream.seek(0)
         try:
             try_lock_exclusive(stream)
@@ -50,13 +62,12 @@ def acquire_profile_lock(owner: str, path: Path | None = None) -> Iterator[None]
             holder = status.owner or owner
             raise ProfileLockError(f"Browser profile is already locked: {holder}") from exc
         try:
-            stream.seek(0)
-            stream.truncate(0)
-            stream.write(f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n".encode())
-            stream.flush()
+            meta_file.write_text(
+                f"{owner}\n{datetime.now(timezone.utc).isoformat()}\n",
+                encoding="utf-8",
+            )
             yield
         finally:
-            stream.seek(0)
-            stream.truncate(0)
             unlock(stream)
+            meta_file.unlink(missing_ok=True)
     lock_file.unlink(missing_ok=True)

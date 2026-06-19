@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import shutil
 import stat
 import subprocess
 import sys
@@ -278,8 +279,16 @@ def test_mindmaps_only_requires_and_accepts_valid_parts_manifest(
 
 
 def test_wrapper_help_delegates_to_python() -> None:
+    wrapper = ROOT / "scripts/run_pipeline.sh"
+    if sys.platform == "win32":
+        bash = shutil.which("bash")
+        if bash is None:
+            pytest.skip("bash is required to execute the shell wrapper on Windows")
+        command = [bash, str(wrapper), "--help"]
+    else:
+        command = [str(wrapper), "--help"]
     result = subprocess.run(
-        [str(ROOT / "scripts/run_pipeline.sh"), "--help"],
+        command,
         cwd=ROOT,
         text=True,
         capture_output=True,
