@@ -80,9 +80,19 @@ def test_mindmap_command_uses_python_entry_point_and_native_paths(
         index_language="Persian",
         ocr="off",
         limit=3,
+        stop_file=None,
     )
+    events = tmp_path / "events.jsonl"
+    stop_file = tmp_path / "stop.requested"
 
-    command = pipeline.mindmap_command(paths, tooling, options)
+    command = pipeline.mindmap_command(
+        paths,
+        tooling,
+        options,
+        event_path=events,
+        run_id="run-abc",
+        stop_file=stop_file,
+    )
 
     assert command[:3] == [
         str(tooling.mindmap_python),
@@ -90,7 +100,15 @@ def test_mindmap_command_uses_python_entry_point_and_native_paths(
         "pdf",
     ]
     assert str(paths.parts) in command
-    assert command[-3:] == ["--overwrite", "--limit", "3"]
+    assert "--event-file" in command
+    assert str(events) in command
+    assert "--run-id" in command
+    assert "run-abc" in command
+    assert "--stop-file" in command
+    assert str(stop_file) in command
+    assert "--overwrite" in command
+    assert "--limit" in command
+    assert "3" in command
 
 
 def test_discover_mindmap_python_uses_available_environment(tmp_path: Path) -> None:

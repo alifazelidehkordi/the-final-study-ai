@@ -30,6 +30,7 @@ EXIT_SUCCESS = 0
 EXIT_FATAL = 1
 EXIT_PARTIAL = 2
 EXIT_REVIEW_REQUIRED = 20
+EXIT_STOPPED_COOPERATIVE = 21
 
 STAGES = ("conversion", "segmentation", "mindmap")
 SEGMENT_SCRIPT = ROOT / "scripts" / "segment_markdown_study_parts.py"
@@ -71,6 +72,7 @@ class PipelineOptions:
     index_language: str
     ocr: str
     limit: int | None
+    stop_file: Path | None
 
 
 class HumanLog:
@@ -140,6 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--event-file", type=Path)
     parser.add_argument("--manifest-file", type=Path)
     parser.add_argument("--run-id")
+    parser.add_argument("--stop-file", type=Path)
     parser.add_argument("--log-file", type=Path)
 
     parser.add_argument("--start-at", choices=STAGES, default="conversion")
@@ -205,6 +208,7 @@ def normalize_options(args: argparse.Namespace) -> PipelineOptions:
         index_language=args.index_language,
         ocr=args.ocr,
         limit=args.limit,
+        stop_file=args.stop_file.expanduser().resolve() if args.stop_file else None,
     )
 
 
@@ -332,6 +336,10 @@ def mindmap_command(
     paths: PipelinePaths,
     tooling: Tooling,
     options: PipelineOptions,
+    *,
+    event_path: Path | None = None,
+    run_id: str | None = None,
+    stop_file: Path | None = None,
 ) -> list[str]:
     command = [
         str(tooling.mindmap_python),
@@ -350,6 +358,12 @@ def mindmap_command(
         command.append("--overwrite")
     if options.limit is not None:
         command.extend(("--limit", str(options.limit)))
+    if event_path is not None:
+        command.extend(("--event-file", str(event_path)))
+    if run_id is not None:
+        command.extend(("--run-id", run_id))
+    if stop_file is not None:
+        command.extend(("--stop-file", str(stop_file)))
     return command
 
 
@@ -381,8 +395,8 @@ def run_stage(
     log.line(f"=== {label} ===")
     events.emit("stage.started", stage)
     code = log.run(command, cwd=cwd)
-    if code == EXIT_SUCCESS:
-        events.emit("stage.completed", stage)
+    if code in (EXIT_SUCCESS, EXIT_PARTIAL, EXIT_STOPPED_COOPERATIVE):
+        events.emit("stage.completed", stage, exit_code=code)
     else:
         events.emit("stage.failed", stage, exit_code=code)
     log.line()
@@ -477,11 +491,21 @@ def execute(
     code = run_stage(
         "mindmap_opml",
         "Step 3/3: Study parts -> OPML -> XMind",
-        mindmap_command(paths, tooling, options),
+        mindmap_command(
+            paths,
+            tooling,
+            options,
+            event_path=events.path,
+            run_id=events.run_id,
+            stop_file=options.stop_file,
+        ),
         log,
         events,
         cwd=tooling.mindmap_project,
     )
+    if code == EXIT_STOPPED_COOPERATIVE:
+        events.emit("run.stopped", "finalize", reason="cooperative")
+        return EXIT_STOPPED_COOPERATIVE
     if code not in (EXIT_SUCCESS, EXIT_PARTIAL):
         return EXIT_FATAL
 
@@ -545,9 +569,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     EXIT_SUCCESS: "completed",
                     EXIT_PARTIAL: "partial",
                     EXIT_REVIEW_REQUIRED: "awaiting_review",
+                    EXIT_STOPPED_COOPERATIVE: "stopped",
                 }.get(code, "failed")
                 set_run_status(manifest_path, manifest, status)
-            if code not in (EXIT_SUCCESS, EXIT_PARTIAL, EXIT_REVIEW_REQUIRED):
+            if code not in (
+                EXIT_SUCCESS,
+                EXIT_PARTIAL,
+                EXIT_REVIEW_REQUIRED,
+                EXIT_STOPPED_COOPERATIVE,
+            ):
                 events.emit("run.failed", "finalize", exit_code=code)
             return code
     except PipelineError as exc:
