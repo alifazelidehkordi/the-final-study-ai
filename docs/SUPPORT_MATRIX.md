@@ -1,6 +1,6 @@
 # Support Matrix — v0.2.0 GUI
 
-**Branch:** `feature/cross-platform-gui`  
+**Repository:** `the-final-study-ai`
 **Date:** 2026-06-19
 
 This matrix describes what is automated in CI, what is qualified on a developer

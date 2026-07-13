@@ -3,7 +3,7 @@
 **Date:** 2026-06-19  
 **Host:** Linux 6.17, X11 (`DISPLAY=:0`, `XDG_SESSION_TYPE=x11`)  
 **Python:** 3.14 (local venv); CI uses 3.12  
-**Branch:** `feature/cross-platform-gui`
+**Repository at qualification:** `the-final-study-ai-gui` (now consolidated into `the-final-study-ai`)
 
 ## Automated gates
 

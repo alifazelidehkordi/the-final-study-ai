@@ -1,8 +1,10 @@
 # The Final Study AI
 
-**Topic-first PDF study pipeline** — from raw PDF to topic-based study parts, a bilingual index with page ranges, and editable XMind mind maps.
+**The canonical desktop app and topic-first PDF study pipeline** — from raw PDF to topic-based study parts, a bilingual index with page ranges, and editable XMind mind maps.
 
 > **Languages:** English (this page) · [فارسی — README.fa.md](README.fa.md)
+>
+> **Canonical repository:** This repository includes both the cross-platform PySide6 desktop app and the CLI pipeline. The former `the-final-study-ai-gui` repository is retained only as an archived migration target.
 
 [![Release](https://img.shields.io/github/v/release/alifazelidehkordi/the-final-study-ai)](https://github.com/alifazelidehkordi/the-final-study-ai/releases/tag/v0.1.0)
 [![GUI beta](https://img.shields.io/badge/GUI-v0.2.0--gui-blue)](docs/RELEASE_NOTES_v0.2.0-gui.md)
@@ -331,7 +333,7 @@ Interactive mind-map acceptance checklist:
 
 ## Roadmap
 
-- [x] Cross-platform desktop GUI (beta on `feature/cross-platform-gui`)
+- [x] Cross-platform desktop GUI (beta)
 - [ ] Interactive mind-map acceptance on Windows + Linux X11
 - [x] Integrity-validated orchestrator `--resume` for stopped/failed runs
 - [ ] Auto-translate study-focus descriptions to Persian

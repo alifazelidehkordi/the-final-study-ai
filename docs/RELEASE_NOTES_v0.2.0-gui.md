@@ -1,7 +1,7 @@
 # Release Notes — v0.2.0 GUI (beta)
 
 **Date:** 2026-06-19  
-**Branch:** `feature/cross-platform-gui`
+**Repository at release:** `the-final-study-ai-gui` (now consolidated into `the-final-study-ai`)
 
 ## Highlights
 

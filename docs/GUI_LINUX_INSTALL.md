@@ -1,8 +1,8 @@
 # راهنمای نصب و اجرا — Linux
 
 **نسخه:** GUI v0.2.0-gui (beta)  
-**ریپوی انتشار:** [the-final-study-ai-gui](https://github.com/alifazelidehkordi/the-final-study-ai-gui)  
-**ریلیز:** [v0.2.0-gui](https://github.com/alifazelidehkordi/the-final-study-ai-gui/releases/tag/v0.2.0-gui)
+**ریپوی انتشار:** [the-final-study-ai](https://github.com/alifazelidehkordi/the-final-study-ai)
+**ریلیز تاریخی GUI:** [v0.2.0-gui](https://github.com/alifazelidehkordi/the-final-study-ai-gui/releases/tag/v0.2.0-gui)
 
 این سند **Ubuntu/Debian و توزیع‌های مشابه (x86_64)** را پوشش می‌دهد.  
 برای مایندمپ، **نشست X11** لازم است — Wayland خالص پشتیبانی نمی‌شود.
@@ -85,9 +85,8 @@ chmod +x gui/deployment/__main__.dist/__main__.bin
 ### ۱. Clone
 
 ```bash
-git clone https://github.com/alifazelidehkordi/the-final-study-ai-gui.git
-cd the-final-study-ai-gui
-git checkout feature/cross-platform-gui
+git clone https://github.com/alifazelidehkordi/the-final-study-ai.git
+cd the-final-study-ai
 ```
 
 ### ۲. محیط مجازی
